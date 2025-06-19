@@ -1,0 +1,212 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.dmre-marker {
+  z-index: 10 !important;
+  position: relative;
+}
+
+/* Tooltip styling */
+.custom-tooltip-container .mapboxgl-popup-content {
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.custom-tooltip-container {
+  z-index: 1000 !important;
+}
+
+.custom-tooltip {
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+/* Ensure proper stacking */
+.mapboxgl-canvas-container {
+  position: relative;
+  z-index: 0;
+}
+
+/* Tooltip styling */
+.tooltip-control {
+  z-index: 1000 !important;
+}
+
+.tooltip-control .custom-tooltip {
+  line-height: 1.4;
+}
+
+.tooltip-control .custom-tooltip strong {
+  color: #003366;
+  }
+
+/* Marker z-index fix */
+.mapboxgl-marker {
+  z-index: 100 !important;
+  position: relative !important;
+}
+
+/* Ensure radius tooltips appear above DMRE markers */
+.radius-tooltip {
+  z-index: 1001 !important;
+}
+
+.radius-menu-popup {
+  z-index: 1001 !important;
+}
+
+/* Optional: Style the tooltip content */
+.radius-tooltip .mapboxgl-popup-content {
+  padding: 8px 12px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Add this to ensure no parent elements are cutting off the map */
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Prevent mapbox-gl from creating scrollbars */
+.mapboxgl-canvas-container.mapboxgl-interactive,
+.mapboxgl-canvas-container.mapboxgl-interactive:active {
+  cursor: grab;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Fix for snackbar container */
+.MuiSnackbar-root {
+  position: fixed;
+  z-index: 1400;
+  pointer-events: none;
+}
+
+.MuiSnackbar-root > div {
+  pointer-events: auto;
+}
+
+.mapboxgl-canvas {
+  transition: opacity 0.3s ease !important;
+}
+
+/* Add this to your global CSS */
+@media (max-width: 768px) {
+  .pdf-container {
+    -webkit-overflow-scrolling: touch;
+    overflow: auto;
+  }
+
+  .pdf-container embed,
+  .pdf-container iframe {
+    min-height: calc(100vh - 70px) !important;
+    height: auto !important;
+  }
+}
+
+/* Global CSS */
+@media (max-width: 768px) {
+  .pdf-iframe {
+    -webkit-overflow-scrolling: touch !important;
+    overflow: auto !important;
+    min-height: calc(100vh - 120px) !important;
+  }
+}
+
+/* Add this to ensure app header stays above everything */
+.app-header, .MuiAppBar-root {
+  z-index: 1200 !important;
+  position: relative;
+}
+
+/* For markers in the map */
+.mapboxgl-marker.dmre-marker {
+  z-index: 100 !important; /* Higher than base map but lower than controls */
+}
+
+/* For logos in your DataGrid */
+.MuiDataGrid-cell .dmre-logo {
+  z-index: 1 !important;
+  position: relative;
+}
+
+/* Mapbox controls should be above DMRE markers */
+.mapboxgl-ctrl {
+  z-index: 110 !important; /* Higher than DMRE markers (100) */
+}
+
+/* Mapbox popups should be above controls */
+.mapboxgl-popup {
+  z-index: 120 !important;
+}
+
+/* Navigation control (zoom buttons) */
+.mapboxgl-ctrl-group {
+  z-index: 111 !important;
+}
+
+/* Draw control */
+.mapboxgl-draw_ctrl-draw-btn {
+  z-index: 112 !important;
+}
+
+.mapboxgl-marker-container {
+  z-index: 100 !important;
+}
+
+/* For pages other than map */
+.non-map-page {
+  position: relative;
+  z-index: 1;
+}
+
+/* Specifically hide the sticky icon on non-map pages */
+.non-map-page .comp-reports-icon {
+  display: none !important;
+}
+
+/* Add this to your index.css */
+.mapboxgl-popup-content .custom-tooltip {
+  all: initial !important; /* Reset all inherited styles */
+  font-family: sans-serif !important;
+  padding: 8px 12px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  background-color: var(--tooltip-bg) !important;
+  border-left: 4px solid var(--tooltip-border) !important;
+  min-width: 200px !important;
+  max-width: 300px !important;
+}
+
+.mapboxgl-popup-content .blue-tooltip {
+  --tooltip-bg: #e6f7ff !important;
+  --tooltip-border: #1890ff !important;
+  min-width: 250px !important;
+}
+
+.mapboxgl-popup-content .grey-tooltip {
+  --tooltip-bg: #f5f5f5 !important;
+  --tooltip-border: #d9d9d9 !important;
+}
