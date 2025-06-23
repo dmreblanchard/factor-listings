@@ -478,19 +478,31 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
     if (!featureId) return;
 
     const map = mapRef.current;
-    const isSelected = selectedPolygons.has(featureId);
+    if (!map) return;
+
+    // Check both the map's feature state and local state
+    const isSelected =
+      map.getFeatureState({ source: "property-polygons", id: featureId })?.selected ||
+      selectedPolygons.has(featureId);
 
     if (isSelected) {
-      removeFromCart(featureId);
+      // Deselect the polygon
+      map.setFeatureState({ source: "property-polygons", id: featureId }, { selected: false });
+      setSelectedPolygons(prev => {
+        const updated = new Set(prev);
+        updated.delete(featureId);
+        return updated;
+      });
+      setCartItems(prev => prev.filter(item => item.id !== featureId));
     } else {
+      // Select the polygon
       const feature = map
         .querySourceFeatures("property-polygons")
         .find((f) => f.id === featureId);
 
       if (feature) {
-        setSelectedPolygons(prev => new Set(prev).add(featureId));
         map.setFeatureState({ source: "property-polygons", id: featureId }, { selected: true });
-
+        setSelectedPolygons(prev => new Set(prev).add(featureId));
         setCartItems(prev => {
           const alreadyInCart = prev.some(item => item.id === featureId);
           return alreadyInCart ? prev : [...prev, feature];
