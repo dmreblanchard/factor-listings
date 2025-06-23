@@ -910,6 +910,12 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
     map.off("mouseenter", "property-polygons-layer");
     map.off("mouseleave", "property-polygons-layer");
 
+    // Show tooltip on hover
+    map.on("mousemove", "property-polygons-layer", (e) => {
+      const feature = e.features[0];
+      tooltipControlRef.current?.show(getTooltipContent(feature), e.lngLat);
+    });
+
     map.on("mouseleave", "property-polygons-layer", () => {
       if (tooltipControlRef.current) {
         tooltipControlRef.current.hide();
