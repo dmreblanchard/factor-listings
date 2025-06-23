@@ -47,7 +47,7 @@ const PropertyCartSidebar = ({ cartOpen, setCartOpen, cartItems, togglePolygonSe
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <LocationOnOutlinedIcon sx={{ color: "primary.main" }} />
           <Typography variant="h6" fontWeight="bold">
-            Selected Properties
+            Selected Listing
           </Typography>
         </Box>
 
@@ -64,7 +64,7 @@ const PropertyCartSidebar = ({ cartOpen, setCartOpen, cartItems, togglePolygonSe
         <List>
           {cartItems.length === 0 ? (
             <Typography sx={{ textAlign: "center", py: 4, color: "gray" }}>
-              No properties selected.
+              No listings selected.
             </Typography>
           ) : (
             cartItems.map((item) => (
@@ -87,7 +87,7 @@ const PropertyCartSidebar = ({ cartOpen, setCartOpen, cartItems, togglePolygonSe
                   }}
                 >
                   <ListItemText
-                    primary={item.properties?.dealName || `Site ${item.id}`}
+                    primary={item.properties?.listingName || `Site ${item.id}`}
                     secondary={`${item.properties?.acreage || "?"} acres`}
                   />
                 </ListItem>
@@ -119,31 +119,12 @@ const PropertyCartSidebar = ({ cartOpen, setCartOpen, cartItems, togglePolygonSe
           color="primary"
           startIcon={<InsertDriveFileOutlinedIcon />}
           onClick={() => {
-            const debug = window.__FACTOR_DEBUG__;
-
-            const markerEntries = Object.entries(debug.markerRadiusMap || {});
-            const markers = markerEntries.map(([markerId, radius]) => {
-              const circleData = debug.markerToCircleMap?.[markerId];
-              return {
-                markerId,
-                center: circleData?.center,
-                radius
-              };
-            });
-
-            const drawFeatures = debug.drawRef?.current?.getAll()?.features || [];
-            const polygons = drawFeatures
-              .filter(f => f.geometry.type === "Polygon")
-              .map(f => f.geometry.coordinates[0]); // Outer ring only
-
-            debug.setDrawnFeatures?.({ markers, polygons }); // Optional: update the state if needed
-
             setCartOpen(false);
             setShowReport(true);
           }}
           disabled={cartItems.length === 0}
         >
-          Build Comp Report
+          Build Listing Report
         </Button>
       </Box>
     </Drawer>

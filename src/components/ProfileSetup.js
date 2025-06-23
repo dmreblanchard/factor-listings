@@ -24,7 +24,7 @@ import {
 } from "@mui/icons-material";
 
 const ProfileSetup = ({ userEmail, fetchUserData, onProfileUpdated, isEditing, onSignOut, onCancel }) => {
-  const API_URL = "https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/user";
+  const API_URL = "https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/user";
 
   // Debug Log
   useEffect(() => {
@@ -37,7 +37,7 @@ const ProfileSetup = ({ userEmail, fetchUserData, onProfileUpdated, isEditing, o
   const [roleType, setRoleType] = useState("");
   const [office, setOffice] = useState("");
   const [team, setTeam] = useState("");
-  const [compsAcknowledgment, setcompsAcknowledgment] = useState(false);
+  const [listingsAcknowledgment, setlistingsAcknowledgment] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Fetch user data when the component mounts or userEmail changes
@@ -71,7 +71,7 @@ const ProfileSetup = ({ userEmail, fetchUserData, onProfileUpdated, isEditing, o
         setRoleType(data.user.role_type || "");
         setOffice(data.user.office || "");
         setTeam(data.user.team || "");
-        setcompsAcknowledgment(data.user.comps_acknowledgment || false);
+        setlistingsAcknowledgment(data.user.listings_acknowledgment || false);
       }
     } catch (error) {
       console.error("🚨 Error fetching user profile:", error);
@@ -83,8 +83,8 @@ const ProfileSetup = ({ userEmail, fetchUserData, onProfileUpdated, isEditing, o
     if (loading) return; // Prevent multiple submissions
 
     // Ensure the checkbox is checked during registration
-    if (!isEditing && !compsAcknowledgment) {
-      alert("You must acknowledge that comp data is company property to proceed.");
+    if (!isEditing && !listingsAcknowledgment) {
+      alert("You must acknowledge that listings data is company property to proceed.");
       return;
     }
 
@@ -97,7 +97,7 @@ const ProfileSetup = ({ userEmail, fetchUserData, onProfileUpdated, isEditing, o
       role_type: roleType,
       office: office,
       team: team,
-      comps_acknowledgment: compsAcknowledgment,
+      listings_acknowledgment: listingsAcknowledgment,
     };
 
     try {
@@ -145,8 +145,8 @@ const ProfileSetup = ({ userEmail, fetchUserData, onProfileUpdated, isEditing, o
         }}
       >
         <img
-          src="/factor_comps_logo.png"
-          alt="Factor Comps"
+          src="/factor_listings_logo.png"
+          alt="Factor Listings"
           style={{ width: "200px", height: "auto" }}
         />
       </Box>
@@ -292,13 +292,13 @@ const ProfileSetup = ({ userEmail, fetchUserData, onProfileUpdated, isEditing, o
               {!isEditing && (
                 <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: "italic" }}>
-                    By proceeding, you acknowledge that all comp data is proprietary to the company and may be used for internal analysis. Unauthorized use or distribution is not permitted.
+                    By proceeding, you acknowledge that all listing data is proprietary to the company and may be used for internal analysis. Unauthorized use or distribution is not permitted.
                   </Typography>
                   <FormControlLabel
                     control={
                       <Checkbox
-                        checked={compsAcknowledgment}
-                        onChange={(e) => setcompsAcknowledgment(e.target.checked)}
+                        checked={listingsAcknowledgment}
+                        onChange={(e) => setlistingsAcknowledgment(e.target.checked)}
                         color="primary"
                         required
                       />

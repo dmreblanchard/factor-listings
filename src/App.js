@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { CircularProgress, Button, Box } from "@mui/material";
 import { SnackbarProvider } from 'notistack'; // Add this import
-import ChatInterface from "./components/ChatInterface";
 import MapPage from "./components/MapPage"; // Import the new MapPage component
 import SignIn from "./components/Signin";
 import ProfileSetup from "./components/ProfileSetup";
@@ -29,8 +28,7 @@ function App() {
   const [currentView, setCurrentView] = useState('map'); // 'map', 'dashboard', 'report'
   const [reportData, setReportData] = useState(null); // For passing report data
 
-  const API_URL = "https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/user";
-
+  const API_URL = "https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/user";
   const fetchUserData = async (currentUser) => {
     if (!currentUser) {
       console.warn("⚠️ fetchUserData() called with null currentUser.");
@@ -182,8 +180,8 @@ function App() {
           }}
         >
           <img
-            src="/factor_comps_logo.png"
-            alt="Factor Comps"
+            src="/factor_listings_logo.png"
+            alt="Factor Listings"
             style={{ width: "200px", height: "auto" }}
           />
         </Box>

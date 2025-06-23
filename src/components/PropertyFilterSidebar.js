@@ -28,14 +28,11 @@ const PropertyFilterSidebar = ({
   setMinAcreage,
   maxAcreage,
   setMaxAcreage,
-  minCloseDate,
-  setMinCloseDate,
   handleApplyFilters,
 }) => {
   const [openSections, setOpenSections] = useState({
     propertyTypes: true,
     acreage: false,
-    closeDate: false,
   });
 
   const propertyTypes = [
@@ -127,28 +124,6 @@ const PropertyFilterSidebar = ({
                 fullWidth
                 value={maxAcreage}
                 onChange={(e) => setMaxAcreage(e.target.value)}
-              />
-            </Box>
-          </Collapse>
-        </Box>
-
-        {/* Close Date Section */}
-        <Box>
-          <ListItem button onClick={() => toggleSection("closeDate")}>
-            <ListItemText primary="Close Date" sx={{ fontWeight: "medium" }} />
-            {openSections.closeDate ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </ListItem>
-          <Collapse in={openSections.closeDate} timeout="auto" unmountOnExit>
-            <Box sx={{ pl: 2, pt: 1 }}>
-              <TextField
-                label="On or after"
-                type="date"
-                fullWidth
-                value={minCloseDate || ''}
-                onChange={(e) => setMinCloseDate(e.target.value)}
-                InputLabelProps={{
-                  shrink: true,
-                }}
               />
             </Box>
           </Collapse>

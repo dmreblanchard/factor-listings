@@ -1,15 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import MapboxDraw from "@mapbox/mapbox-gl-draw";
-import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import * as turf from "@turf/turf";
 import { Box, IconButton, Button, Badge, Fab, Tooltip, Drawer, List, ListItem, ListItemText } from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import DeleteIcon from "@mui/icons-material/Delete";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import { Person as UserIcon } from "@mui/icons-material";
-import CloseIcon from "@mui/icons-material/Close";
 import ReportBuilder from "./ReportBuilder";
 import TuneIcon from "@mui/icons-material/Tune";
 import Typography from "@mui/material/Typography";
@@ -22,21 +18,13 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PropertyCartSidebar from "./PropertyCartSidebar";
 import PropertyFilterSidebar from "./PropertyFilterSidebar";
 import CompDashboard from "./CompDashboard";
-import FilterTiltShiftOutlinedIcon from '@mui/icons-material/FilterTiltShiftOutlined';
 import CompPreview from './CompPreview';
 import Calendar from '@mui/icons-material/CalendarToday';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import EditIcon from '@mui/icons-material/Edit';
 import CompReportsSidebar from './CompReportsSidebar.js';
-import InsightsIcon from '@mui/icons-material/Insights';
-import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Collapse from '@mui/material/Collapse';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import BackupTableOutlinedIcon from '@mui/icons-material/BackupTableOutlined';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
@@ -98,60 +86,38 @@ function usePrevious(value) {
 const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
-  const drawRef = useRef(null);
-  const markerToCircleMap = useRef({});
-  const markerRadiusMap = useRef({});
   const activePopupRef = useRef(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [selectedPolygons, setSelectedPolygons] = useState(new Set());
   const hoverPopupRef = useRef(new mapboxgl.Popup({ closeButton: false, closeOnClick: false }));
-  const popupClosedByUserRef = useRef(false);
-  const lastOpenedPopupMarkerIdRef = useRef(null);
-  const hasAdjustedRadiusRef = useRef({});
   const shapeToPolygonsMap = useRef({});
-  const selectionSourceMap = useRef({}); // key: drawFeatureId -> Set of polygonIds
-  const isDrawingRef = useRef(false);
-  const justPlacedMarkerRef = useRef(false);
   const [cartItems, setCartItems] = useState([]); // Array of site metadata
   const [cartOpen, setCartOpen] = useState(false);
-
   const [selectedUseTypes, setSelectedUseTypes] = useState([]);
   const [minAcreage, setMinAcreage] = useState("");
   const [maxAcreage, setMaxAcreage] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const dmreMarkersRef = useRef([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [showCircleRadii, setShowCircleRadii] = useState(false);
-  const circleTooltips = useRef([]);
   const tooltipControlRef = useRef(null);
   const isMobile = () => /Mobi|Android/i.test(navigator.userAgent);
-  //const isMobile = () => true; // 🚧 For local testing only
   const lastTappedPolygonIdRef = useRef(null);
   const lastTapTimestampRef = useRef(0);
   const [pdfUrl, setPdfUrl] = useState(null); // 👈 Blob URL to show in iframe
-  const [drawnFeatures, setDrawnFeatures] = useState({ polygons: [], markers: [] });
-
   const [reportData, setReportData] = useState(null);
   const [compReports, setCompReports] = useState([]);
   const [showCompReports, setShowCompReports] = useState(false);
   const [isLoadingCompReports, setIsLoadingCompReports] = useState(false);
-  const [insightsOpen, setInsightsOpen] = useState(false);
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false); // For GPT
   const [isLoadingProperties, setIsLoadingProperties] = useState(false); // For polygons/search
   const [isLoadingReports, setIsLoadingReports] = useState(false); // For comp reports
-  const [marketSummary, setMarketSummary] = useState(null);
-  const [insightsExpanded, setInsightsExpanded] = useState(true);
-  const [marketInsightSummary, setMarketInsightSummary] = useState("");
   const isLoadingAnything = isSearching || isLoadingCompReports;
   const [hasInitialSearchCompleted, setHasInitialSearchCompleted] = useState(false);
   const [showSecondaryIcons, setShowSecondaryIcons] = useState(false);
-  const [lastInsightBounds, setLastInsightBounds] = useState(null);
   const [shouldShowGenerateButton, setShouldShowGenerateButton] = useState(true);
   const [reportGeoData, setReportGeoData] = useState({});
   const [orderedGeoData, setOrderedGeoData] = useState(null);
   const [reportBuilderState, setReportBuilderState] = useState(null);
   const [liveRows, setLiveRows] = useState(null); // 👈 store live, editable rows
-  const [minCloseDate, setMinCloseDate] = useState('');
   const [dashboardReports, setDashboardReports] = useState({
     userReports: [],
     officeReports: []
@@ -277,7 +243,7 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
             maxLng: mapData.bounds.maxLng
           };
 
-          const response = await fetch("https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/search", {
+          const response = await fetch("https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/listings/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(params),
@@ -308,8 +274,8 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
                   id: f.id,
                   properties: {
                     ...f.properties,
-                    dealId: f.properties.dealId || f.id,
-                    dealName: f.properties.dealName || 'Unnamed Property'
+                    listingId: f.properties.listingId || f.id,
+                    listingName: f.properties.listingName || 'Unnamed Property'
                   }
                 }));
 
@@ -340,56 +306,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
                   console.warn(`⚠️ Polygon ID not found in map source: ${id}`);
                 }
               });
-              //console.log("Marker Radii: ", mapData.marker_radii);
-              //console.log("Drawn Polygons: ", mapData.drawn_polygons);
-              // MARKER RESTORE
-              if (mapData.marker_radii && Array.isArray(mapData.marker_radii)) {
-                //console.log("%c📍 Restoring drawn markers + radii:", "color: #9C27B0");
-                mapData.marker_radii.forEach(({ center, radius, markerId }) => {
-                  //console.log(`➕ Drawing marker: ${markerId} | Center: ${center}, Radius: ${radius}`);
-
-                  drawRef.current.add({
-                    type: "Feature",
-                    id: markerId,
-                    properties: {},
-                    geometry: {
-                      type: "Point",
-                      coordinates: center
-                    }
-                  });
-
-                  drawCircle(center, radius, mapRef.current, markerId);
-
-                  const buffered = turf.buffer(turf.point(center), radius, { units: "miles" });
-                  autoSelectIntersectingPolygons(buffered.geometry, markerId);
-                });
-              } else {
-                //console.log("%cℹ️ No markers to restore", "color: gray");
-              }
-
-              // POLYGON RESTORE
-              if (mapData.drawn_polygons && Array.isArray(mapData.drawn_polygons)) {
-                //console.log("%c🧩 Restoring drawn polygons:", "color: #FF5722");
-                mapData.drawn_polygons.forEach((coords, i) => {
-                  const polygonId = `restored-draw-${i}`;
-                  //console.log(`➕ Drawing polygon ${polygonId}:`, coords);
-
-                  const polygonFeature = {
-                    type: "Feature",
-                    id: polygonId,
-                    properties: {},
-                    geometry: {
-                      type: "Polygon",
-                      coordinates: [coords]
-                    }
-                  };
-
-                  drawRef.current.add(polygonFeature);
-                  autoSelectIntersectingPolygons(polygonFeature.geometry, polygonId);
-                });
-              } else {
-                console.log("%cℹ️ No polygons to restore", "color: gray");
-              }
             });
           };
 
@@ -519,48 +435,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
     }
   }, [navigationState.showPreview, navigationState.showReport, mapViewState]);
 
-  const toggleCircleRadii = () => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (showCircleRadii) {
-      // Remove all tooltips
-      circleTooltips.current.forEach(tooltip => tooltip.remove());
-      circleTooltips.current = [];
-    } else {
-      // Create new array for tooltips
-      const newTooltips = [];
-
-      // Create tooltips for all circles
-      Object.entries(markerRadiusMap.current).forEach(([markerId, radius]) => {
-        const circleData = markerToCircleMap.current[markerId];
-        if (circleData && map.getSource(circleData.id)) {
-          const tooltip = new mapboxgl.Popup({
-            closeButton: false,
-            className: 'radius-tooltip' // Add a custom class
-          })
-            .setLngLat(circleData.center)
-            .setHTML(`<div style="font-size: 12px;">Radius: ${radius.toFixed(2)} mi</div>`)
-            .addTo(map);
-
-          // Force higher z-index
-          setTimeout(() => {
-            const elements = document.getElementsByClassName('radius-tooltip');
-            for (let el of elements) {
-              el.style.zIndex = '1001'; // Higher than DMRE markers (which are at 10)
-            }
-          }, 50);
-
-          newTooltips.push(tooltip);
-        }
-      });
-
-      circleTooltips.current = newTooltips;
-    }
-
-    setShowCircleRadii(!showCircleRadii);
-  };
-
   const addPolygonToSelection = (featureId) => {
     if (!featureId) return;
 
@@ -584,8 +458,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         const alreadyInCart = prev.some((item) => item.id === featureId);
         return alreadyInCart ? prev : [...prev, feature];
       });
-
-      //console.log("🔹 Added polygon to selection:", featureId);
     }
   };
 
@@ -593,127 +465,37 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
     const map = mapRef.current;
     if (!map || !featureId) return;
 
-    //console.log("🧹 Removing polygon from cart:", featureId);
-
-    // Deselect on map
     map.setFeatureState({ source: "property-polygons", id: featureId }, { selected: false });
-
-    // Remove from selection set
-    setSelectedPolygons((prevSelected) => {
-      const updated = new Set(prevSelected);
+    setSelectedPolygons(prev => {
+      const updated = new Set(prev);
       updated.delete(featureId);
       return updated;
     });
-
-    // Remove from cart
-    setCartItems((prevCart) => prevCart.filter((item) => item.id !== featureId));
-
-    // Remove from reportGeoData
-    setReportGeoData((prev) => {
-      const newData = { ...prev };
-      delete newData[featureId];
-      console.log("🗑️ Removed geo data for:", featureId);
-      return newData;
-    });
+    setCartItems(prev => prev.filter(item => item.id !== featureId));
   };
 
   const togglePolygonSelection = (featureId) => {
-    if (!featureId) {
-      console.warn("🚨 No featureId provided to togglePolygonSelection");
-      return;
-    }
+    if (!featureId) return;
 
     const map = mapRef.current;
-    const isSelected =
-      map.getFeatureState({ source: "property-polygons", id: featureId })?.selected ??
-      selectedPolygons.has(featureId);
+    const isSelected = selectedPolygons.has(featureId);
 
-    // Update the polygon state on the map and internal set
-    setSelectedPolygons((prevSelected) => {
-      const updated = new Set(prevSelected);
+    if (isSelected) {
+      removeFromCart(featureId);
+    } else {
+      const feature = map
+        .querySourceFeatures("property-polygons")
+        .find((f) => f.id === featureId);
 
-      if (isSelected) {
-        //console.log("🔻 Deselecting polygon", featureId);
-        //updated.delete(featureId);
-        removeFromCart(featureId);
-        map.setFeatureState({ source: "property-polygons", id: featureId }, { selected: false });
-
-        // Remove from cart
-        setCartItems((prev) => prev.filter((item) => item.id !== featureId));
-      } else {
-        //console.log("🔹 Selecting polygon", featureId);
-        updated.add(featureId);
+      if (feature) {
+        setSelectedPolygons(prev => new Set(prev).add(featureId));
         map.setFeatureState({ source: "property-polygons", id: featureId }, { selected: true });
 
-        // Add to cart
-        const feature = map
-          .querySourceFeatures("property-polygons")
-          .find((f) => f.id === featureId);
-          if (feature) {
-            setCartItems((prev) => {
-              const alreadyInCart = prev.some((item) => item.id === feature.id);
-              if (!alreadyInCart) {
-                return [...prev, feature];
-              }
-              return prev;
-            });
-            setReportGeoData(prev => {
-              const newData = {
-                ...prev,
-                [featureId]: {
-                  geometry: feature.geometry,
-                  properties: {
-                    dealName: feature.properties.dealName,
-                    acreage: feature.properties.acreage
-                  }
-                }
-              };
-              console.log("🟢 Updated reportGeoData:", newData);
-              return newData;
-            });
-          }
+        setCartItems(prev => {
+          const alreadyInCart = prev.some(item => item.id === featureId);
+          return alreadyInCart ? prev : [...prev, feature];
+        });
       }
-
-      return updated;
-    });
-  };
-
-  const autoSelectIntersectingPolygons = (drawnGeometry, drawFeatureId) => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const allFeatures = map.querySourceFeatures("property-polygons");
-    const selectedForThisDraw = new Set();
-
-    allFeatures.forEach((feature) => {
-      const polygonGeometry = feature.geometry;
-      const intersects = turf.booleanIntersects(drawnGeometry, polygonGeometry);
-
-      if (intersects && feature.properties.fillType === "blue") {
-        const id = feature.id || feature.properties?.id;
-        if (id) {
-          //console.log("✅ Auto-adding polygon due to intersection:", id);
-          addPolygonToSelection(id);
-
-          setReportGeoData(prev => ({
-            ...prev,
-            [id]: {
-              geometry: feature.geometry,
-              properties: {
-                dealName: feature.properties.dealName,
-                acreage: feature.properties.acreage
-              }
-            }
-          }));
-          //console.log("Autoselection Geometry: ", feature.geometry);
-          selectedForThisDraw.add(id);
-        }
-      }
-    });
-
-    // Track which polygons were selected by this shape
-    if (drawFeatureId) {
-      selectionSourceMap.current[drawFeatureId] = selectedForThisDraw;
     }
   };
 
@@ -740,66 +522,33 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
   };
 
   function polygonClickHandler(e) {
-    if (isMobile()) return; // ✅ Skip on mobile
-    // 🛑 Suppress click if marker was just placed
-    if (justPlacedMarkerRef.current) {
-      //console.log("🛑 Click suppressed: just placed a marker.");
-      return;
-    }
-
-    const drawMode = drawRef.current?.getMode?.();
-
-    if (drawMode === "draw_point" || drawMode === "draw_polygon") {
-      //console.log("🚫 Click suppressed during draw mode:", drawMode);
-      return;
-    }
-
     const feature = e.features[0];
     const id = feature.id || feature.properties?.id;
 
     if (feature.properties.fillType === "blue") {
-      // Only add if NOT in drawing mode
-      const drawMode = drawRef.current?.getMode?.();
-      const isDrawing = drawMode === "draw_point" || drawMode === "draw_polygon";
-
-      if (!isDrawing) {
-        togglePolygonSelection(id); // ✅ Now toggles on click
-      }
-    } else {
-      window.open(`https://www.factor.dmre.com/property-detail/${id}`, "_blank");
+      togglePolygonSelection(id);
     }
   }
 
   const getTooltipContent = (feature) => {
     const props = feature.properties;
     const isBlue = props.fillType === "blue";
-
+    console.log(props);
     let html = `<div class="custom-tooltip ${isBlue ? 'blue-tooltip' : 'grey-tooltip'}">`;
 
     // Common fields
-    html += `<strong>${props.dealName || props.name}</strong><br/>`;
+    html += `<strong>${props.listingName || props.name}</strong><br/>`;
 
     if (isBlue) {
       // Blue polygon tooltip (comps)
       html += `
         ${props.primaryUseType ? `Use: ${props.primaryUseType}<br/>` : ''}
         ${props.acreage ? `Acreage: ${props.acreage} acres<br/>` : ''}
-        ${props.calculatedPrice ? `Price: $${props.calculatedPrice.toLocaleString()}<br/>` : ''}
-        ${props.outsideCloseDate ? `Close: ${new Date(props.outsideCloseDate).toLocaleDateString()}<br/>` : ''}
-        ${props.buyer ? `Buyer: ${props.buyer}<br/>` : ''}
-      `;
-    } else {
-      // Grey polygon tooltip (non-comps)
-      html += `
-        ${props.status ? `Status: ${props.status}<br/>` : ''}
-        ${props.acreage ? `Acreage: ${props.acreage} acres<br/>` : ''}
-        ${props.city ? `City: ${props.city}<br/>` : ''}
-        ${props.currentAllowableUses ? `Current Uses: ${props.currentAllowableUses}<br/>` : ''}
-        ${props.futureAllowableUses ? `Future Uses: ${props.futureAllowableUses}<br/>` : ''}
-        ${props.futureSupplyUses ? `Supply Uses: ${props.futureSupplyUses}<br/>` : ''}
+        ${props.leadBroker ? `Lead Broker: ${props.leadBroker}<br/>` : ''}
+        ${props.commencementDate ? `Commencement Date: ${new Date(props.commencementDate).toLocaleDateString()}<br/>` : ''}
+        ${props.sellerRepStatus ? `Listing Status: ${props.sellerRepStatus}<br/>` : ''}
       `;
     }
-
     html += `</div>`;
     return html;
   };
@@ -925,13 +674,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
 
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-    const draw = new MapboxDraw({
-      displayControlsDefault: false,
-      controls: { point: true, polygon: true, trash: true },
-    });
-
-    map.addControl(draw);
-
     // Force z-index after controls are added
     setTimeout(() => {
       // Navigation controls
@@ -939,23 +681,10 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
       navControls.forEach(ctrl => {
         ctrl.style.zIndex = '111';
       });
-
-      // Draw controls
-      const drawControls = document.querySelectorAll('.mapboxgl-draw_ctrl-draw-btn');
-      drawControls.forEach(ctrl => {
-        ctrl.style.zIndex = '112';
-      });
-
-      // Marker container
-      const markerContainer = document.querySelector('.mapboxgl-marker-container');
-      if (markerContainer) {
-        markerContainer.style.zIndex = '100';
-      }
     }, 100);
 
     map.on("load", () => {
       mapRef.current = map;
-      drawRef.current = draw;
       tooltipControlRef.current = new TooltipControl();
       map.getContainer().appendChild(tooltipControlRef.current.onAdd(map));
 
@@ -965,16 +694,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
           center: { lng: center.lng, lat: center.lat },
           zoom: map.getZoom(),
         });
-      });
-
-      map.on("draw.modechange", (e) => {
-        const isDrawing = ["draw_point", "draw_polygon"].includes(e.mode);
-        isDrawingRef.current = isDrawing;
-
-        //console.log("🛠️ Draw mode changed:", e.mode);
-        //console.log("🎯 Drawing state:", isDrawingRef.current);
-
-        map.getCanvas().style.cursor = isDrawing ? "crosshair" : "";
       });
 
       // Handle clicks on the Salesforce layer
@@ -990,165 +709,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         tooltipControlRef.current?.hide();
         lastTappedPolygonIdRef.current = null;
         lastTapTimestampRef.current = 0;
-      });
-
-      // Handle marker clicks
-      map.on("click", (e) => {
-        const features = draw.getAll().features;
-        const clickedMarker = features.find(
-          (f) =>
-            f.geometry.type === "Point" &&
-            turf.booleanPointInPolygon(
-              turf.point(e.lngLat.toArray()),
-              turf.buffer(turf.point(f.geometry.coordinates), 0.01, { units: "miles" })
-            )
-        );
-
-        if (clickedMarker) {
-          const markerId = clickedMarker.id;
-          const radius = markerRadiusMap.current[markerId] || 1;
-          showPopup(clickedMarker.geometry.coordinates, radius, markerId);
-        } else if (activePopupRef.current) {
-          activePopupRef.current.remove();
-          activePopupRef.current = null;
-        }
-      });
-
-      map.on("draw.create", (e) => {
-        const feature = e.features[0];
-        const featureId = feature.id;
-
-        if (feature.geometry.type === "Point") {
-          const center = feature.geometry.coordinates;
-          const initialRadius = 1;
-          markerRadiusMap.current[featureId] = initialRadius;
-
-          drawCircle(center, initialRadius, map, featureId);
-          showPopup(center, initialRadius, featureId);
-
-          // 🚫 Set "just placed marker" flag
-          justPlacedMarkerRef.current = true;
-          setTimeout(() => {
-            justPlacedMarkerRef.current = false;
-          }, 100); // Delay long enough to skip the click event
-        }
-
-        if (feature.geometry.type === "Polygon") {
-          autoSelectIntersectingPolygons(feature.geometry, featureId);
-        }
-      });
-
-      map.on("draw.update", (e) => {
-        const map = mapRef.current;
-        if (!map) return;
-
-        e.features.forEach((feature) => {
-          const featureId = feature.id;
-
-          if (feature.geometry.type === "Point") {
-            const newCenter = feature.geometry.coordinates;
-            const radius = markerRadiusMap.current[featureId] || 1;
-
-            // 1. Recreate and redraw circle from updated marker
-            const newCircle = drawCircle(newCenter, radius, map, featureId);
-
-            // 2. Check intersections with all property polygons
-            const allFeatures = map.querySourceFeatures("property-polygons");
-            const stillIntersecting = new Set();
-
-            allFeatures.forEach((polygon) => {
-              const intersects = turf.booleanIntersects(newCircle, polygon.geometry);
-              const id = polygon.id || polygon.properties?.id;
-
-              if (intersects && polygon.properties.fillType === "blue") {
-                addToCart(id);
-                stillIntersecting.add(id);
-              }
-            });
-
-            // 3. Deselect previously selected polygons that no longer intersect
-            const previouslySelected = selectionSourceMap.current[featureId] || new Set();
-            previouslySelected.forEach((id) => {
-              if (!stillIntersecting.has(id)) {
-                removeFromCart(id);
-              }
-            });
-
-            // 4. Update selection tracking map
-            selectionSourceMap.current[featureId] = stillIntersecting;
-          }
-
-          if (feature.geometry.type === "Polygon") {
-            const allFeatures = map.querySourceFeatures("property-polygons");
-            const stillIntersecting = new Set();
-
-            allFeatures.forEach((polygon) => {
-              const intersects = turf.booleanIntersects(feature.geometry, polygon.geometry);
-              const id = polygon.id || polygon.properties?.id;
-
-              if (intersects && polygon.properties.fillType === "blue") {
-                addToCart(id);
-                stillIntersecting.add(id);
-              }
-            });
-
-            const previouslySelected = selectionSourceMap.current[featureId] || new Set();
-            previouslySelected.forEach((id) => {
-              if (!stillIntersecting.has(id)) {
-                removeFromCart(id);
-              }
-            });
-
-            selectionSourceMap.current[featureId] = stillIntersecting;
-          }
-        });
-      });
-
-      map.on("draw.delete", (e) => {
-        const map = mapRef.current;
-
-        e.features.forEach((feature) => {
-          const featureId = feature.id;
-
-          // 🧹 Deselect all polygons selected by this shape
-          const polygonIds = selectionSourceMap.current[featureId];
-          if (polygonIds) {
-            setSelectedPolygons((prevSelected) => {
-              const updated = new Set(prevSelected);
-              polygonIds.forEach((polygonId) => {
-                map.setFeatureState({ source: "property-polygons", id: polygonId }, { selected: false });
-                //updated.delete(polygonId);
-                removeFromCart(polygonId);
-              });
-              return updated;
-            });
-
-            delete selectionSourceMap.current[featureId];
-          }
-
-          // 🔘 Cleanup circle layer and associated tooltips
-          if (feature.geometry.type === "Point") {
-            const circleId = markerToCircleMap.current[featureId]?.id;
-            if (circleId) {
-              if (map.getLayer(circleId)) map.removeLayer(circleId);
-              if (map.getSource(circleId)) map.removeSource(circleId);
-
-              // Clean up any tooltips for this marker
-              circleTooltips.current = circleTooltips.current.filter(tooltip => {
-                const shouldKeep = !tooltip._lngLat ||
-                  turf.distance(
-                    turf.point(tooltip._lngLat.toArray()),
-                    turf.point(feature.geometry.coordinates)
-                  ) >= 0.01;
-                if (!shouldKeep) tooltip.remove();
-                return shouldKeep;
-              });
-
-              delete markerToCircleMap.current[featureId];
-              delete markerRadiusMap.current[featureId];
-            }
-          }
-        });
       });
     });
 
@@ -1184,7 +744,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
     if (selectedUseTypes.length > 0) count++;
     if (minAcreage) count++;
     if (maxAcreage) count++;
-    if (minCloseDate) count++;
     return count;
   };
 
@@ -1202,10 +761,9 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         minLng: bounds.getWest(),
         maxLng: bounds.getEast()
       };
-      //const closeDate = minCloseDate || undefined // Add this line
-      //console.log("Close Date Filter:", closeDate);
+
       // 1. Fetch properties (essential)
-      const propertiesResponse = await fetch("https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/search", {
+      const propertiesResponse = await fetch("https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/listings/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1213,7 +771,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
           useTypes: selectedUseTypes,
           minAcreage: minAcreage ? parseFloat(minAcreage) : undefined,
           maxAcreage: maxAcreage ? parseFloat(maxAcreage) : undefined,
-          minCloseDate: minCloseDate || undefined
         }),
       });
 
@@ -1224,9 +781,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
 
       // Process and render properties immediately
       renderProperties(map, geojson, savedSelections);
-
-      // 2. Fetch comp reports (lightweight)
-      await fetchCompReports(params);
 
       // After first successful search, show the secondary icons
       if (!hasInitialSearchCompleted) {
@@ -1344,20 +898,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
     map.off("mouseenter", "property-polygons-layer");
     map.off("mouseleave", "property-polygons-layer");
 
-    map.on("mousemove", "property-polygons-layer", (e) => {
-      const drawMode = drawRef.current?.getMode?.();
-      if (drawMode === "draw_point" || drawMode === "draw_polygon") return;
-
-      const feature = e.features[0];
-      tooltipControlRef.current?.show(getTooltipContent(feature), e.lngLat);
-    });
-
-    map.on("mouseenter", "property-polygons-layer", () => {
-      const drawMode = drawRef.current?.getMode?.();
-      if (drawMode === "draw_point" || drawMode === "draw_polygon") return;
-      map.getCanvas().style.cursor = "pointer";
-    });
-
     map.on("mouseleave", "property-polygons-layer", () => {
       if (tooltipControlRef.current) {
         tooltipControlRef.current.hide();
@@ -1377,99 +917,7 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
       return newSelections;
     });
 
-    console.log("Total polygons:", geojson.features.length);
-    console.log("Comp polygons:", geojson.features.filter(f => f.properties.fillType === "blue").length);
-  };
-
-  // Separate function for comp reports only
-  const fetchCompReports = async (params) => {
-    try {
-      setIsLoadingCompReports(true);
-      setCompReports([]); // Clear existing reports first
-      const compReportsResponse = await fetch(
-        `https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/search?${new URLSearchParams(params)}`,
-        { method: "GET", headers: { "Content-Type": "application/json" } }
-      );
-
-      const reportsData = await compReportsResponse.json();
-      if (reportsData.success) {
-        setCompReports(reportsData.reports);
-        //console.log("COMP REPORTS DATA: ", reportsData.reports);
-      }
-    } catch (err) {
-      console.error("Failed to fetch comp reports:", err);
-    } finally {
-      setIsLoadingCompReports(false);
-    }
-  };
-
-  // New function for manual insights generation
-  const generateNewInsights = async () => {
-    if (!mapRef.current) return;
-
-    try {
-      setIsGeneratingInsights(true);
-      setShouldShowGenerateButton(false);
-
-      const bounds = mapRef.current.getBounds();
-      const params = {
-        minLat: bounds.getSouth(),
-        maxLat: bounds.getNorth(),
-        minLng: bounds.getWest(),
-        maxLng: bounds.getEast()
-      };
-
-      // 1. Fetch blue properties (comps)
-      const propertiesResponse = await fetch("https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
-
-      const geojson = await propertiesResponse.json();
-      const blueProperties = geojson.features
-        .filter(f => f.properties.fillType === "blue")
-        .map(f => f.properties);
-
-      // 2. Fetch published reports (using your existing fetchCompReports logic)
-      const reportsResponse = await fetch(
-        `https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/search?${new URLSearchParams(params)}`,
-        { method: "GET" }
-      );
-
-      const reportsData = await reportsResponse.json();
-      const publishedReports = reportsData.success
-        ? reportsData.reports.filter(r => r.status === "published")
-        : [];
-
-      // Prepare payload - exactly as you want it
-      const aiPayload = {
-        report_data: publishedReports, // All comps from all reports
-        properties: blueProperties,  // All blue properties
-        prompt_type: "market_insight_from_map_bounds"
-      };
-
-      //console.log("AI Payload:", aiPayload);
-
-      if (publishedReports.length > 0 || blueProperties.length > 0) {
-        const aiResponse = await fetch("https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/ai/market_insight", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(aiPayload),
-        });
-
-        const aiJson = await aiResponse.json();
-        setMarketInsightSummary(aiJson.summary || "No market insight returned.");
-      } else {
-        setMarketInsightSummary("Not enough data to summarize market insight.");
-      }
-
-    } catch (err) {
-      console.error("AI market insight fetch failed:", err);
-      setMarketInsightSummary("Could not generate market insight.");
-    } finally {
-      setIsGeneratingInsights(false);
-    }
+    console.log("Listing polygons:", geojson.features.filter(f => f.properties.fillType === "blue").length);
   };
 
   // Add this function to get minimal map data
@@ -1487,209 +935,12 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         type: item.geometry.type,
         coordinates: item.geometry.coordinates,
         properties: {
-          name: item.properties.dealName || `Property ${item.id}`,
+          name: item.properties.listingName || `Property ${item.id}`,
           // Include any other minimal properties needed
         }
       })),
-
-      // User-drawn elements that selected these (optional)
-      selectionSources: {
-        polygons: drawRef.current?.getAll()?.features
-          ?.filter(f => f.geometry.type === "Polygon")
-          ?.map(f => f.geometry.coordinates[0]) || [],
-        circles: Object.entries(markerRadiusMap.current).map(([markerId, radius]) => ({
-          center: markerToCircleMap.current[markerId]?.center,
-          radius
-        }))
-      }
     };
   };
-
-  // New effect to clear insights when map moves significantly
-  useEffect(() => {
-    if (!mapRef.current || !lastInsightBounds) return;
-
-    const map = mapRef.current;
-
-    const handleMoveEnd = () => {
-      const currentBounds = map.getBounds();
-      const boundsChangedSignificantly =
-        Math.abs(currentBounds.getNorth() - lastInsightBounds.getNorth()) > 0.1 ||
-        Math.abs(currentBounds.getSouth() - lastInsightBounds.getSouth()) > 0.1 ||
-        Math.abs(currentBounds.getEast() - lastInsightBounds.getEast()) > 0.1 ||
-        Math.abs(currentBounds.getWest() - lastInsightBounds.getWest()) > 0.1;
-
-      if (boundsChangedSignificantly) {
-        setMarketInsightSummary(null);
-      }
-    };
-
-    map.on('moveend', handleMoveEnd);
-    return () => map.off('moveend', handleMoveEnd);
-  }, [lastInsightBounds]);
-
-  const drawCircle = (center, radius, map, markerId) => {
-    const circleId = `circle-${markerId}`;
-
-    if (map.getLayer(circleId)) map.removeLayer(circleId);
-    if (map.getSource(circleId)) map.removeSource(circleId);
-
-    const circle = turf.circle(center, radius, { steps: 64, units: "miles" });
-
-    map.addSource(circleId, {
-      type: "geojson",
-      data: circle,
-    });
-
-    map.addLayer(
-      {
-        id: circleId,
-        type: "fill",
-        source: circleId,
-        paint: {
-          "fill-color": "#00aaff",
-          "fill-opacity": 0.3,
-        },
-      },
-      "road-label"
-    );
-
-    // Store both the circle ID and its center coordinates
-    markerToCircleMap.current[markerId] = {
-      id: circleId,
-      center: center
-    };
-    markerRadiusMap.current[markerId] = radius;
-    return circle;
-  };
-
-  const showPopup = (center, radius, markerId) => {
-    if (activePopupRef.current) {
-      activePopupRef.current.remove();
-    }
-
-    lastOpenedPopupMarkerIdRef.current = markerId;
-    hasAdjustedRadiusRef.current[markerId] = false; // 🔁 Reset flag
-
-    const popup = new mapboxgl.Popup({
-      closeOnClick: true,
-      className: 'radius-menu-popup' // ✅ Add a custom class to the popup
-    })
-      .setLngLat(center)
-      .setHTML(`
-        <div style="font-family: sans-serif;">
-          <strong>Radius:</strong> <span id="radiusValue">${radius.toFixed(2)} mi</span><br/>
-          <button id="decreaseRadius">-</button>
-          <button id="increaseRadius">+</button>
-        </div>
-      `)
-      .addTo(mapRef.current);
-
-    activePopupRef.current = popup;
-
-    // ✅ Manually bump z-index AFTER popup renders
-    setTimeout(() => {
-      const el = document.querySelector('.radius-menu-popup');
-      if (el) el.style.zIndex = '2000'; // Must be >10 to beat DMRE marker z-index
-    }, 0);
-
-    popup.on("close", () => {
-      const map = mapRef.current;
-      if (!map) {
-        console.warn("⚠️ Popup closed, but mapRef is undefined.");
-        return;
-      }
-
-      const finalRadius = markerRadiusMap.current[markerId];
-      if (finalRadius === undefined) {
-        console.warn("⚠️ Marker radius not found (probably deleted). Skipping intersection.");
-        return;
-      }
-
-      const buffered = turf.buffer(turf.point(center), finalRadius, { units: "miles" });
-
-      if (lastOpenedPopupMarkerIdRef.current === markerId) {
-        //console.log("✅ Popup closed. Running intersection…");
-
-        const allFeatures = map.querySourceFeatures("property-polygons");
-        const currentSelectedForThisMarker = selectionSourceMap.current[markerId] || new Set();
-        const nextSelectedForThisMarker = new Set();
-
-        allFeatures.forEach((feature) => {
-          const id = feature.id || feature.properties?.id;
-          const polygonGeometry = feature.geometry;
-          const intersects = turf.booleanIntersects(buffered.geometry, polygonGeometry);
-
-          if (intersects && feature.properties.fillType === "blue") {
-            nextSelectedForThisMarker.add(id);
-            if (!currentSelectedForThisMarker.has(id)) {
-              // Get the full feature data
-              const fullFeature = map.querySourceFeatures("property-polygons")
-                .find(f => (f.id || f.properties?.id) === id);
-
-              if (fullFeature) {
-                // Update reportGeoData
-                setReportGeoData(prev => ({
-                  ...prev,
-                  [id]: {
-                    geometry: fullFeature.geometry,
-                    properties: {
-                      dealName: fullFeature.properties.dealName,
-                      acreage: fullFeature.properties.acreage
-                    }
-                  }
-                }));
-                //console.log("🌐 Added via circle - Feature:", {
-                //  id,
-                //  geometry: fullFeature.geometry,
-                //  properties: fullFeature.properties
-                //});
-              }
-              addPolygonToSelection(id);
-            }
-          }
-        });
-
-        currentSelectedForThisMarker.forEach((id) => {
-          if (!nextSelectedForThisMarker.has(id)) {
-            togglePolygonSelection(id);
-          }
-        });
-
-        selectionSourceMap.current[markerId] = nextSelectedForThisMarker;
-      }
-    });
-
-    // Radius buttons
-    setTimeout(() => {
-      const radiusValue = document.getElementById("radiusValue");
-
-      document.getElementById("decreaseRadius").onclick = () => {
-        const newRadius = Math.max(0.25, markerRadiusMap.current[markerId] - 0.25);
-        markerRadiusMap.current[markerId] = newRadius;
-        hasAdjustedRadiusRef.current[markerId] = true; // ✅ Mark as changed
-        drawCircle(center, newRadius, mapRef.current, markerId);
-        if (radiusValue) radiusValue.innerText = `${newRadius.toFixed(2)} mi`;
-      };
-
-      document.getElementById("increaseRadius").onclick = () => {
-        const newRadius = markerRadiusMap.current[markerId] + 0.25;
-        markerRadiusMap.current[markerId] = newRadius;
-        hasAdjustedRadiusRef.current[markerId] = true; // ✅ Mark as changed
-        drawCircle(center, newRadius, mapRef.current, markerId);
-        if (radiusValue) radiusValue.innerText = `${newRadius.toFixed(2)} mi`;
-      };
-    }, 0);
-  };
-
-  useEffect(() => {
-    window.__FACTOR_DEBUG__ = {
-      mapRef,
-      drawRef,
-      markerToCircleMap,
-      markerRadiusMap,
-    };
-  }, []);
 
   return (
     <Box sx={{
@@ -1712,9 +963,9 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         zIndex: 10,
         flexShrink: 0
       }}>
-        <img src="/factor_comps_logo.png" alt="Factor Comps" style={{ width: "200px", height: "auto" }} />
+        <img src="/factor_listings_logo.png" alt="Factor Listings" style={{ width: "200px", height: "auto" }} />
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Tooltip title="Comp Reports Dashboard">
+          <Tooltip title="Listing Reports Dashboard">
             <IconButton
               onClick={handleShowDashboard}
               sx={{ color: "grey" }}
@@ -1801,21 +1052,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
                   </IconButton>
                 </Badge>
               </Tooltip>
-
-              {Object.keys(markerRadiusMap.current).length > 0 && (
-                <Tooltip title={showCircleRadii ? "Hide radii" : "Show radii"}>
-                  <IconButton
-                    onClick={toggleCircleRadii}
-                    sx={{
-                      backgroundColor: "white",
-                      boxShadow: 3,
-                      '&:hover': { backgroundColor: "#f0f0f0" }
-                    }}
-                  >
-                    <FilterTiltShiftOutlinedIcon color={showCircleRadii ? "primary" : "inherit"} />
-                  </IconButton>
-                </Tooltip>
-              )}
             </Box>
 
             {/* Bottom buttons */}
@@ -1838,27 +1074,7 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
               }}>
                 {showSecondaryIcons && (
                   <>
-                    <Tooltip title="Factor Genius">
-                      <IconButton
-                        onClick={() => {
-                          setInsightsOpen(!insightsOpen);
-                          setShouldShowGenerateButton(true);
-                        }}
-                        sx={{
-                          backgroundColor: "white",
-                          boxShadow: 3,
-                          '&:hover': {
-                            backgroundColor: "#f0f0f0",
-                            transform: 'scale(1.1)',
-                          },
-                          transition: 'all 0.2s ease',
-                        }}
-                      >
-                        <InsightsIcon color={marketInsightSummary ? "primary" : "inherit"} />
-                      </IconButton>
-                    </Tooltip>
-
-                    <Tooltip title="Comp Reports">
+                    <Tooltip title="Listing Reports">
                       <Badge
                         badgeContent={isLoadingCompReports ? 0 : compReports.length}
                         color="primary"
@@ -1920,8 +1136,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         maxAcreage={maxAcreage}
         setMaxAcreage={setMaxAcreage}
         handleApplyFilters={handleFetchRecords}
-        minCloseDate={minCloseDate}
-        setMinCloseDate={setMinCloseDate}
       />
 
       <PropertyCartSidebar
@@ -1980,93 +1194,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         }}
       />
 
-      {/* Insights Panel */}
-      <Collapse
-        in={insightsOpen}
-        sx={{
-          position: "absolute",
-          bottom: isMobile() ? 210 : 134,
-          left: 24,
-          zIndex: 1000,
-          width: isMobile() ? 'calc(100% - 48px)' : 340,
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            borderRadius: 2,
-            overflow: 'hidden',
-            maxHeight: 400,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          <Box
-            sx={{
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
-              p: 1.5,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LightbulbIcon fontSize="small" />
-              <Typography variant="subtitle1">Factor Genius</Typography>
-            </Box>
-            <Box>
-              <IconButton
-                size="small"
-                onClick={() => setInsightsOpen(false)}
-                sx={{ color: 'primary.contrastText' }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </Box>
-
-          <Box sx={{ p: 2, maxHeight: 300, overflow: 'auto' }}>
-            {isGeneratingInsights ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <CircularProgress size={24} sx={{ mb: 1 }} />
-                <Typography variant="body2">Analyzing properties...</Typography>
-              </Box>
-            ) : marketInsightSummary ? (
-              <>
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  {marketInsightSummary}
-                </Typography>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={generateNewInsights}
-                    startIcon={<RefreshIcon fontSize="small" />}
-                  >
-                    Refresh Insights
-                  </Button>
-                </Box>
-              </>
-            ) : (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  No insights generated yet
-                </Typography>
-                <Button
-                  variant="contained"
-                  onClick={generateNewInsights}
-                  startIcon={<InsightsIcon />}
-                  sx={{ width: '100%' }}
-                >
-                  Generate Insights
-                </Button>
-              </Box>
-            )}
-          </Box>
-        </Paper>
-      </Collapse>
-
       {/* Report Builder */}
       {console.log('DEBUG - reportGeoData before ReportBuilder:', reportGeoData)}
       {navigationState.showReport && (
@@ -2074,18 +1201,6 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
           cartItems={reportBuilderState?.cartItems || cartItems}
           initialGeoData={reportBuilderState?.geoData || reportGeoData}
           setCartItems={setCartItems}
-          drawnFeatures={{
-            markers: Object.entries(markerRadiusMap.current).map(([markerId, radius]) => ({
-              markerId,
-              center: markerToCircleMap.current[markerId]?.center,
-              radius,
-            })),
-            polygons: drawRef.current
-              ?.getAll()
-              ?.features
-              ?.filter(f => f.geometry.type === "Polygon")
-              ?.map(f => f.geometry.coordinates[0]) || []
-          }}
           savedReport={reportBuilderState ? null : navigationState.editingReport}
           onBack={() => handleReturnToMap()} // No data = simple return
           onReturnToMap={handleReturnToMap} // With data = full UX

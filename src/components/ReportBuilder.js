@@ -70,7 +70,7 @@ function formatFloat(value) {
   return isNaN(num) ? "" : num.toFixed(2);
 }
 
-const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPreviewPDF, drawnFeatures, userData, savedReport, onNavigateToMap, isEditingReport, onReturnToMap, initialGeoData, reportId, reportStatus, onContextUpdate, liveRows, setLiveRows, ...props }) => {
+const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPreviewPDF, userData, savedReport, onNavigateToMap, isEditingReport, onReturnToMap, initialGeoData, reportId, reportStatus, onContextUpdate, liveRows, setLiveRows, ...props }) => {
 
   console.log("🧠 Geojson received in ReportBuilder:", initialGeoData);
   console.log("🧠 Geojson received from Edit Request:", savedReport?.geo_data);
@@ -209,7 +209,6 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
             user_email: userData?.user_email,
             rowOrder,
             columnSettings,
-            drawnFeatures,
             selectedRows: orderedRows, // Use the ordered rows
             comment: comment,
             isCommentLoading: !comment,
@@ -227,41 +226,11 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
       };
 
       updatePreview(generatedComment);
-
-      // Generate AI comment in background
-      generateCompComment(reportTitle, orderedRows)
-        .then(comment => {
-          setGeneratedComment(comment);
-          updatePreview(comment);
-        })
-        .catch(error => {
-          console.error("Background comment generation failed:", error);
-        });
-
     } catch (error) {
       console.error("Failed to generate PDF:", error);
       // Optional: Add user feedback here
     } finally {
       setIsGeneratingPDF(false);
-    }
-  };
-
-  const generateCompComment = async (reportTitle, selectedRows) => {
-    try {
-      const response = await fetch("https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/create/comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportTitle,
-          comps: selectedRows,
-        }),
-      });
-
-      const data = await response.json();
-      return data.comment || "";
-    } catch (error) {
-      console.error("🛑 Error generating comp comment:", error);
-      return "";
     }
   };
 
@@ -1450,23 +1419,11 @@ const formattedRows = React.useMemo(() => {
 
           const selectedIds = rows.map(r => r.id || r.dealId);
 
-          // Get geo data from either saved report or current state
-          const geoData = savedReport
-            ? {
-                marker_radii: savedReport.marker_radii || [],
-                drawn_polygons: savedReport.drawn_polygons || []
-              }
-            : {
-                marker_radii: [], // Empty array if not using markers in new reports
-                drawn_polygons: drawnFeatures?.polygons || []
-              };
-
           onReturnToMap({
             bounds,
             center,
             selectedIds,
-            ...geoData,
-            reportGeoData: reportGeoData || geoData
+            reportGeoData: reportGeoData
           });
         }}
         startIcon={<MapOutlinedIcon />}

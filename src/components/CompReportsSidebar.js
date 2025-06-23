@@ -73,7 +73,7 @@ const CompReportsSidebar = ({
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <InsertDriveFileIcon fontSize="small" />
-              <Typography variant="subtitle1">Published Comp Reports</Typography>
+              <Typography variant="subtitle1">Published Listing Reports</Typography>
             </Box>
             <IconButton
               onClick={toggleExpanded}
@@ -123,7 +123,7 @@ const CompReportsSidebar = ({
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <RoomOutlinedIcon fontSize="small" />
-                          {report.row_order?.length || 0} properties
+                          {report.row_order?.length || 0} records
                         </Typography>
                       </Box>
                       <Typography variant="caption" color="text.secondary">
@@ -189,7 +189,7 @@ const CompReportsSidebar = ({
                   sx={{ textTransform: 'none' }}
                   onClick={onViewAllReports}
                 >
-                  View All Comp Reports
+                  View All Listing Reports
                 </Button>
               </Box>
             </>

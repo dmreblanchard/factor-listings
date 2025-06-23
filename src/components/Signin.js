@@ -172,8 +172,8 @@ const SignIn = ({ onSignInSuccess }) => {
         }}
       >
         <img
-          src="/factor_comps_logo.png"
-          alt="Factor Comps"
+          src="/factor_listings_logo.png"
+          alt="Factor Listings"
           style={{ width: "200px", height: "auto" }}
         />
       </Box>
