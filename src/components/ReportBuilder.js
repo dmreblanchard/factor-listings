@@ -43,6 +43,8 @@ import { generateMapboxStaticUrl } from './generateMap'; // assuming you saved i
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Tooltip from '@mui/material/Tooltip';
 
+
+
 // Helper functions for formatting
 function formatCloseDate(value, formatOption) {
   if (!value) return "";
@@ -163,7 +165,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     return initialGeoData || null;
   });
   const [activeTab, setActiveTab] = useState(0);
-
+  const [isLoading, setIsLoading] = useState(false);
   // State for offers
   const [offers, setOffers] = useState([]);
   const [offersColumns, setOffersColumns] = useState([
@@ -174,6 +176,169 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     { field: 'Offering_Company__r.Name', headerName: 'Company', width: 200 },
   ]);
 
+  const offerColumns = [
+    {
+      field: "Name",
+      headerName: "Offer Name",
+      width: 200,
+      minWidth: 180
+    },
+    {
+      field: "Offer_Status__c",
+      headerName: "Status",
+      width: 150,
+      minWidth: 120
+    },
+    {
+      field: "Calculated_Purchase_Price__c",
+      headerName: "Purchase Price",
+      width: 160,
+      minWidth: 140,
+      valueFormatter: (params) => formatDollar(params?.value)
+    },
+    {
+      field: "Effective_Date__c",
+      headerName: "Effective Date",
+      width: 150,
+      minWidth: 130,
+      valueFormatter: (params) => formatDate(params?.value)
+    },
+    {
+      field: "Offering_Contact__r.Full_Name__c",
+      headerName: "Contact",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => {
+        // Safely access nested properties
+        return params?.row?.Offering_Contact__r?.Full_Name__c || "N/A";
+      }
+    },
+    {
+      field: "Lead_Broker__r.Full_Name__c",
+      headerName: "Lead Broker",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => {
+        return params?.row?.Lead_Broker__r?.Full_Name__c || "N/A";
+      }
+    },
+    {
+      field: "actions",
+      headerName: "",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          onClick={() => window.open(`https://your.salesforce.instance.com/${params?.id}`, '_blank')}
+        >
+          <OpenInNewIcon fontSize="small" />
+        </IconButton>
+      )
+    }
+  ];
+
+  const feedbackColumns = [
+    {
+      field: "Name",
+      headerName: "Feedback Name",
+      width: 200,
+      minWidth: 180
+    },
+    {
+      field: "Status__c",
+      headerName: "Status",
+      width: 150,
+      minWidth: 120
+    },
+    {
+      field: "Feedback__c",
+      headerName: "Feedback",
+      width: 300,
+      minWidth: 250,
+      renderCell: (params) => (
+        <Tooltip title={params?.value || ""}>
+          <span>
+            {params?.value?.length > 50
+              ? `${params.value.substring(0, 50)}...`
+              : params?.value || ""}
+          </span>
+        </Tooltip>
+      )
+    },
+    {
+      field: "Buyer_Company__r.Name",
+      headerName: "Company",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => {
+        return params?.row?.Buyer_Company__r?.Name || "N/A";
+      }
+    },
+    {
+      field: "Buyer_Contact__r.Full_Name__c",
+      headerName: "Contact",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => {
+        return params?.row?.Buyer_Contact__r?.Full_Name__c || "N/A";
+      }
+    },
+    {
+      field: "CreatedDate",
+      headerName: "Created Date",
+      width: 150,
+      minWidth: 130,
+      valueFormatter: (params) => formatDate(params?.value)
+    },
+    {
+      field: "actions",
+      headerName: "",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          onClick={() => window.open(
+            `https://your.salesforce.instance.com/${params?.id || ""}`,
+            '_blank'
+          )}
+        >
+          <OpenInNewIcon fontSize="small" />
+        </IconButton>
+      )
+    }
+  ];
+
+  const [columnSettings, setColumnSettings] = useState(() => {
+    // Create default settings that show all columns
+    const defaultSettings = [
+      ...offerColumns.map(col => ({
+        field: col.field,
+        label: col.headerName,
+        hidden: false,
+        formatOption: col.field.includes('Date') ? 'Date' : undefined
+      })),
+      ...feedbackColumns.map(col => ({
+        field: col.field,
+        label: col.headerName,
+        hidden: false,
+        formatOption: col.field.includes('Date') ? 'Date' : undefined
+      }))
+    ];
+
+    // Then try to load saved settings
+    try {
+      if (savedReport?.column_settings) {
+        const saved = typeof savedReport.column_settings === 'string'
+          ? JSON.parse(savedReport.column_settings)
+          : savedReport.column_settings;
+        return saved || defaultSettings;
+      }
+      return defaultSettings;
+    } catch (e) {
+      return defaultSettings;
+    }
+  });
+
   // State for feedback
   const [feedback, setFeedback] = useState([]);
 
@@ -182,11 +347,41 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   const [isOffersModalOpen, setIsOffersModalOpen] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
-  // Initialize data when reportData changes
   useEffect(() => {
+    console.log("Current column settings:", columnSettings);
+    console.log("Offer columns:", offerColumns);
+    console.log("Generated offers columns:", getColumnsToShow(offerColumns, columnSettings));
+    console.log("Feedback columns:", feedbackColumns);
+    console.log("Generated feedback columns:", getColumnsToShow(feedbackColumns, columnSettings));
+  }, [columnSettings]);
+
+  useEffect(() => {
+    setIsLoading(true);
     if (reportData) {
       setOffers(reportData.offers || []);
       setFeedback(reportData.feedback || []);
+    }
+    setIsLoading(false);
+  }, [reportData]);
+
+  // Initialize data when reportData changes
+  useEffect(() => {
+    if (reportData) {
+      console.log("Setting offers data:", reportData.offers);
+      setOffers(reportData.offers || []);
+      console.log("Setting feedback data:", reportData.feedback);
+      setFeedback(reportData.feedback || []);
+
+      // Also ensure columns are set
+      if (reportData.offers?.length > 0 && offersColumns.length === 0) {
+        setOffersColumns([
+          { field: 'Name', headerName: 'Offer Name', width: 200 },
+          { field: 'Offer_Status__c', headerName: 'Status', width: 150 },
+          { field: 'Calculated_Purchase_Price__c', headerName: 'Purchase Price', width: 150 },
+          { field: 'Effective_Date__c', headerName: 'Effective Date', width: 150 },
+          { field: 'Offering_Contact__r.Full_Name__c', headerName: 'Contact', width: 200 },
+        ]);
+      }
     }
   }, [reportData]);
 
@@ -493,133 +688,6 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   });
 
   // Define column configurations for both data types
-  const offerColumns = [
-    {
-      field: "Name",
-      headerName: "Offer Name",
-      width: 200,
-      minWidth: 180
-    },
-    {
-      field: "Offer_Status__c",
-      headerName: "Status",
-      width: 150,
-      minWidth: 120
-    },
-    {
-      field: "Calculated_Purchase_Price__c",
-      headerName: "Purchase Price",
-      width: 160,
-      minWidth: 140,
-      valueFormatter: (params) => formatDollar(params.value)
-    },
-    {
-      field: "Effective_Date__c",
-      headerName: "Effective Date",
-      width: 150,
-      minWidth: 130,
-      valueFormatter: (params) => formatDate(params.value)
-    },
-    {
-      field: "Offering_Company__r.Name",
-      headerName: "Company",
-      width: 200,
-      minWidth: 180,
-      valueGetter: (params) => params.row.Offering_Company__r?.Name || ""
-    },
-    {
-      field: "Lead_Broker__r.Full_Name__c",
-      headerName: "Lead Broker",
-      width: 200,
-      minWidth: 180,
-      valueGetter: (params) => params.row.Lead_Broker__r?.Full_Name__c || ""
-    },
-    {
-      field: "Total_Earnest_Money__c",
-      headerName: "Earnest Money",
-      width: 160,
-      minWidth: 140,
-      valueFormatter: (params) => formatDollar(params.value)
-    },
-    {
-      field: "actions",
-      headerName: "",
-      width: 120,
-      sortable: false,
-      renderCell: (params) => (
-        <IconButton
-          onClick={() => window.open(`https://your.salesforce.instance.com/${params.id}`, '_blank')}
-        >
-          <OpenInNewIcon fontSize="small" />
-        </IconButton>
-      )
-    }
-  ];
-
-  const feedbackColumns = [
-    {
-      field: "Name",
-      headerName: "Feedback Name",
-      width: 200,
-      minWidth: 180
-    },
-    {
-      field: "Status__c",
-      headerName: "Status",
-      width: 150,
-      minWidth: 120
-    },
-    {
-      field: "Feedback__c",
-      headerName: "Feedback",
-      width: 300,
-      minWidth: 250,
-      renderCell: (params) => (
-        <Tooltip title={params.value}>
-          <span>{params.value?.length > 50 ? `${params.value.substring(0, 50)}...` : params.value}</span>
-        </Tooltip>
-      )
-    },
-    {
-      field: "Buyer_Company__r.Name",
-      headerName: "Company",
-      width: 200,
-      minWidth: 180,
-      valueGetter: (params) => params.row.Buyer_Company__r?.Name || ""
-    },
-    {
-      field: "Buyer_Contact__r.Full_Name__c",
-      headerName: "Contact",
-      width: 200,
-      minWidth: 180,
-      valueGetter: (params) => params.row.Buyer_Contact__r?.Full_Name__c || ""
-    },
-    {
-      field: "CreatedDate",
-      headerName: "Created Date",
-      width: 150,
-      minWidth: 130,
-      valueFormatter: (params) => formatDate(params.value)
-    },
-    {
-      field: "actions",
-      headerName: "",
-      width: 120,
-      sortable: false,
-      renderCell: (params) => (
-        <IconButton
-          onClick={() => window.open(`https://your.salesforce.instance.com/${params.id}`, '_blank')}
-        >
-          <OpenInNewIcon fontSize="small" />
-        </IconButton>
-      )
-    }
-  ];
-
-
-
-
-
 
 
   // Initialize rowOrder from localStorage or from cartItems
@@ -696,48 +764,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [columnSettings, setColumnSettings] = useState(() => {
-    // 1. First try to load from saved report
-    if (savedReport?.column_settings) {
-      try {
-        const loadedSettings = Array.isArray(savedReport.column_settings)
-          ? savedReport.column_settings
-          : JSON.parse(savedReport.column_settings);
 
-        return loadedSettings;
-      } catch (e) {
-        console.error("Failed to parse saved column settings:", e);
-      }
-    }
-
-    // 2. Try to load from localStorage
-    try {
-      const savedSettings = localStorage.getItem("compReportColumnSettings");
-      if (savedSettings) {
-        return JSON.parse(savedSettings);
-      }
-    } catch (e) {
-      console.error("Failed to parse localStorage column settings:", e);
-    }
-
-    // 3. Fallback to default settings for both types
-    return [
-      ...offerColumns.map(col => ({
-        field: col.field,
-        label: col.headerName,
-        hidden: false,
-        // Add format options if needed
-        ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
-      })),
-      ...feedbackColumns.map(col => ({
-        field: col.field,
-        label: col.headerName,
-        hidden: false,
-        // Add format options if needed
-        ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
-      }))
-    ];
-  });
 
   const getFormatOption = (field) => {
     const setting = columnSettings.find(c => c.field === field);
@@ -988,18 +1015,23 @@ const formattedRows = React.useMemo(() => {
   }, [columnSettings]);
 
   // Create DataGrid columns based on current configuration
-  const getColumnsToShow = (columns, settings) => {
-    return columns
-      .filter(col => !col.isSpecial) // Filter out special columns first
-      .map(col => {
-        const config = settings.find(c => c.field === col.field);
-        if (!config || config.hidden) return null;
+  const getColumnsToShow = (columns = [], settings = []) => {
+    if (!Array.isArray(columns)) return [];
 
-        // Apply formatting from settings if available
-        if (config.formatOption) {
-          return {
-            ...col,
+    return columns
+      .filter(col => col && !col.isSpecial)
+      .map(col => {
+        if (!col || !col.field) return null;
+
+        const config = settings.find(c => c && c.field === col.field);
+        if (config?.hidden) return null;
+
+        // Return column with formatting if specified
+        return {
+          ...col,
+          ...(config?.formatOption && {
             valueFormatter: (params) => {
+              if (!params.value) return '';
               if (col.field.includes('Date')) {
                 return formatDate(params.value, config.formatOption);
               }
@@ -1008,9 +1040,8 @@ const formattedRows = React.useMemo(() => {
               }
               return params.value;
             }
-          };
-        }
-        return col;
+          })
+        };
       })
       .filter(Boolean);
   };
@@ -1248,18 +1279,31 @@ const formattedRows = React.useMemo(() => {
 
         <TabPanel value={activeTab} index={0}>
           <Box sx={{ height: 400, width: '100%' }}>
+            {console.log('Rendering offers with:', {
+              rows: offers,
+              columns: offersColumnsToShow,
+              rowCount: offers.length,
+              columnCount: offersColumnsToShow.length
+            })}
             <DataGrid
               rows={offers}
               columns={offersColumnsToShow}
               getRowId={(row) => row.Id}  // Use Salesforce's Id field
               pageSize={10}
               rowsPerPageOptions={[5, 10, 25]}
+              loading={offers.length === 0}
             />
           </Box>
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
           <Box sx={{ height: 400, width: '100%' }}>
+            {console.log('Rendering feedback with:', {
+              rows: feedback,
+              columns: feedbackColumnsToShow,
+              rowCount: feedback.length,
+              columnCount: feedbackColumnsToShow.length
+            })}
             <DataGrid
               rows={feedback}
               columns={feedbackColumnsToShow}
