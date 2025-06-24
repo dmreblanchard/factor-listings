@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   Box,
   IconButton,
@@ -13,16 +13,55 @@ import {
   Badge
 } from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import CircularProgress from '@mui/material/CircularProgress';
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import InsertDriveFileOutlinedIcon from "@mui/icons-material/InsertDriveFileOutlined";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import ClearAllIcon from "@mui/icons-material/ClearAll";
 
-const PropertyCartSidebar = ({ cartOpen, setCartOpen, cartItems, togglePolygonSelection, setShowReport, setCartItems, setSelectedPolygons, onClearAll }) => {
+const PropertyCartSidebar = ({ cartOpen, setCartOpen, cartItems, togglePolygonSelection, setShowReport, setCartItems, setSelectedPolygons, onClearAll, setReportData }) => {
 
+  const [isLoading, setIsLoading] = useState(false);
   const handleRemoveAll = () => {
     onClearAll();  // Use the passed function
+  };
+
+  const handleBuildReport = async () => {
+    if (cartItems.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      // Assuming single listing selection
+      const listingId = cartItems[0].properties.listingId;
+
+      const response = await fetch(
+        `https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/listings/${listingId}/report-data`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            // Add authorization header if needed
+            // 'Authorization': `Bearer ${userToken}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setReportData(data); // Pass data to parent component
+      setCartOpen(false);
+      setShowReport(true);
+
+    } catch (error) {
+      console.error('Failed to fetch report data:', error);
+      // Add error handling (e.g., show snackbar/toast)
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -117,14 +156,11 @@ const PropertyCartSidebar = ({ cartOpen, setCartOpen, cartItems, togglePolygonSe
           fullWidth
           variant="contained"
           color="primary"
-          startIcon={<InsertDriveFileOutlinedIcon />}
-          onClick={() => {
-            setCartOpen(false);
-            setShowReport(true);
-          }}
-          disabled={cartItems.length === 0}
+          startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <InsertDriveFileOutlinedIcon />}
+          onClick={handleBuildReport}
+          disabled={cartItems.length === 0 || isLoading}
         >
-          Build Listing Report
+          {isLoading ? 'Building Report...' : 'Build Listing Report'}
         </Button>
       </Box>
     </Drawer>

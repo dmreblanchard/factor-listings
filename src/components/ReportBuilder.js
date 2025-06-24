@@ -1,6 +1,20 @@
 // components/ReportBuilder.js
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, useTheme, useMediaQuery } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  useTheme,
+  useMediaQuery,
+  Tabs,
+  Tab,
+  Divider
+} from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import ColumnSettingsModal from "./ColumnSettingsModal";
 import EditRowModal from './EditRowModal';
@@ -26,6 +40,8 @@ import CompPreview from "./CompPreview";
 import CircularProgress from '@mui/material/CircularProgress';
 import CheckIcon from '@mui/icons-material/Check';
 import { generateMapboxStaticUrl } from './generateMap'; // assuming you saved it as generateMap.js
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import Tooltip from '@mui/material/Tooltip';
 
 // Helper functions for formatting
 function formatCloseDate(value, formatOption) {
@@ -70,7 +86,49 @@ function formatFloat(value) {
   return isNaN(num) ? "" : num.toFixed(2);
 }
 
-const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPreviewPDF, userData, savedReport, onNavigateToMap, isEditingReport, onReturnToMap, initialGeoData, reportId, reportStatus, onContextUpdate, liveRows, setLiveRows, ...props }) => {
+function formatDate(value, formatOption = "Date") {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (isNaN(date.getTime())) {
+    console.warn("Invalid date:", value);
+    return "";
+  }
+
+  switch (formatOption) {
+    case "Month/Year":
+      return date.toLocaleString("default", { month: "short", year: "numeric" });
+    case "Quarter/Year":
+      const quarter = Math.floor(date.getMonth() / 3) + 1;
+      return `Q${quarter} ${date.getFullYear()}`;
+    case "Year":
+      return `${date.getFullYear()}`;
+    default:
+      return date.toLocaleDateString();
+  }
+}
+
+// Tab panel component
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveItem, onPreviewPDF, userData, savedReport, onNavigateToMap, isEditingReport, onReturnToMap, initialGeoData, reportId, reportStatus, onContextUpdate, liveRows, setLiveRows, ...props }) => {
 
   console.log("🧠 Geojson received in ReportBuilder:", initialGeoData);
   console.log("🧠 Geojson received from Edit Request:", savedReport?.geo_data);
@@ -104,21 +162,33 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
     }
     return initialGeoData || null;
   });
-  // Transform cartItems to rows when they change
-  useEffect(() => {
-    const newRows = cartItems.map(item => ({
-      ...item.properties,
-      id: item.id,
-      dealId: item.properties.dealId
-    }));
-    setRows(newRows);
-  }, [cartItems]);
+  const [activeTab, setActiveTab] = useState(0);
 
+  // State for offers
+  const [offers, setOffers] = useState([]);
+  const [offersColumns, setOffersColumns] = useState([
+    { field: 'Name', headerName: 'Offer Name', width: 200 },
+    { field: 'Offer_Status__c', headerName: 'Status', width: 150 },
+    { field: 'Calculated_Purchase_Price__c', headerName: 'Purchase Price', width: 150 },
+    { field: 'Effective_Date__c', headerName: 'Effective Date', width: 150 },
+    { field: 'Offering_Company__r.Name', headerName: 'Company', width: 200 },
+  ]);
+
+  // State for feedback
+  const [feedback, setFeedback] = useState([]);
+
+
+  // Column settings modals
+  const [isOffersModalOpen, setIsOffersModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+
+  // Initialize data when reportData changes
   useEffect(() => {
-    if (initialGeoData) {
-      setReportGeoData(initialGeoData);
+    if (reportData) {
+      setOffers(reportData.offers || []);
+      setFeedback(reportData.feedback || []);
     }
-  }, [initialGeoData]);
+  }, [reportData]);
 
   const handleEdit = (row) => {
     setCurrentRow({
@@ -134,82 +204,73 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
     setIsGeneratingPDF(true);
 
     try {
-      // Get ordered rows with masking applied
-      const orderedRows = rowOrder
-        .map(id => rows.find(row => row.id === id || row.dealId === id))
-        .filter(Boolean)
-        .map((row, index) => {
-          // Check if we need to mask close date for this row
-          const closeDateSetting = columnSettings.find(c => c.field === "closeDate");
+      // Determine which data to use based on active tab
+      const dataSource = activeTab === 0 ? offers : feedback;
+      const columnsSource = activeTab === 0 ? offersColumnsToShow : feedbackColumnsToShow;
+
+      // Prepare rows with proper numbering
+      const orderedRows = dataSource.map((row, index) => {
+        // For offers, check if we need to mask dates
+        if (activeTab === 0) {
+          const closeDateSetting = columnSettings.find(c => c.field === "Effective_Date__c");
           const shouldMask = closeDateSetting?.maskUnderContract;
 
-          // Apply masking if enabled and deal is Under Contract
-          const closeDate = (shouldMask && row.dealStage === "Under Contract")
-            ? "-"
-            : row.closeDate;
-
           return {
-            ...row, // Spread all existing properties
-            closeDate, // Override closeDate if masking applies
-            rowNumber: index + 1 // Explicitly add row numbers
+            ...row,
+            Effective_Date__c: (shouldMask && row.Offer_Status__c === "Under Contract")
+              ? "-"
+              : row.Effective_Date__c,
+            rowNumber: index + 1
           };
-        });
+        }
 
-      const visibleColumns = columnsToShow.filter(col => col.field !== 'actions');
+        // For feedback, just add row numbers
+        return {
+          ...row,
+          rowNumber: index + 1
+        };
+      });
 
-      // Filter AND reorder GeoJSON to match the row order
-      const orderedGeoData = {};
-      if (reportGeoData) {
-        // Create ordered array of features based on rowOrder
-        rowOrder.forEach((id, index) => {
-          const row = rows.find(r => r.id === id || r.dealId === id);
-          if (!row) return;
+      // Filter out action columns
+      const visibleColumns = columnsSource.filter(col => col.field !== 'actions');
 
+      // Prepare geo data if available (only relevant for offers)
+      let orderedGeoData = {};
+      if (reportGeoData && activeTab === 0) {
+        orderedRows.forEach((row, index) => {
           const featureId = row.id || row.dealId;
           const originalFeature = reportGeoData[featureId];
-          if (!originalFeature) return;
-
-          // Create new feature with updated properties
-          orderedGeoData[featureId] = {
-            ...originalFeature,
-            properties: {
-              ...originalFeature.properties,
-              rowNumber: index + 1 // Match the tabular report numbering
-            }
-          };
-        });
-
-        // Debugging: Verify the order
-        console.log("Order verification:", {
-          tableRows: orderedRows.map(r => ({ id: r.id, number: r.rowNumber })),
-          geoFeatures: Object.values(orderedGeoData).map(f => ({
-            id: f.properties.id || f.properties.dealId,
-            number: f.properties.rowNumber
-          }))
+          if (originalFeature) {
+            orderedGeoData[featureId] = {
+              ...originalFeature,
+              properties: {
+                ...originalFeature.properties,
+                rowNumber: index + 1
+              }
+            };
+          }
         });
       }
 
-      // Generate both PDFs
+      // Generate PDFs
       const { tabularPDF, mapPDF } = await generatePDFReport(
         orderedRows,
         visibleColumns,
-        reportTitle,
+        `${reportTitle} - ${activeTab === 0 ? 'Offers' : 'Feedback'}`,
         { orientation: 'landscape' },
-        orderedGeoData // Now properly ordered
+        Object.keys(orderedGeoData).length > 0 ? orderedGeoData : null
       );
 
-      // Create blob from the tabular PDF (arraybuffer)
+      // Create PDF blob
       const pdfBlob = new Blob([tabularPDF], { type: 'application/pdf' });
       const pdfUrl = URL.createObjectURL(pdfBlob);
 
       const updatePreview = (comment = "") => {
         if (onPreviewPDF) {
           onPreviewPDF(pdfUrl, {
-            reportTitle,
+            reportTitle: `${reportTitle} - ${activeTab === 0 ? 'Offers' : 'Feedback'}`,
             user_email: userData?.user_email,
-            rowOrder,
-            columnSettings,
-            selectedRows: orderedRows, // Use the ordered rows
+            selectedRows: orderedRows,
             comment: comment,
             isCommentLoading: !comment,
             report_data: orderedRows,
@@ -217,10 +278,7 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
             id: savedReport?.id || null,
             report_id: reportId || null,
             geoData: orderedGeoData,
-            mapPDF: mapPDF,
-            currentRows: rows,
-            currentCartItems: cartItems,
-            currentRowOrder: rowOrder
+            mapPDF: mapPDF
           });
         }
       };
@@ -228,7 +286,7 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
       updatePreview(generatedComment);
     } catch (error) {
       console.error("Failed to generate PDF:", error);
-      // Optional: Add user feedback here
+      // Consider adding user feedback here (e.g., a snackbar/toast)
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -374,7 +432,6 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
     );
   });
 
-
   const SortableRow = ({ id, row }) => {
     const {
       attributes,
@@ -428,123 +485,142 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
     if (savedReport?.title) return savedReport.title;
     try {
       const savedTitle = localStorage.getItem("compReportTitle");
-      return savedTitle || "Comps Report Builder";
+      return savedTitle || "Listing Report Builder";
     } catch (e) {
       console.error("Failed to load report title:", e);
-      return "Comps Report Builder";
+      return "Listing Report Builder";
     }
   });
 
-  const fullColumns = [
+  // Define column configurations for both data types
+  const offerColumns = [
     {
-      field: "isDMRE",
-      headerName: "DMRE",
-      width: isMobile ? 100 : 120, // Smaller on mobile
-      sortable: true,
-      filterable: false,
-      disableColumnMenu: true,
-      sticky: true, // This makes the column stick to the left
-      renderCell: (params) => {
-        return params.row.isDMRE ? (
-          <img
-            src="https://factor-mind-assets.s3.us-east-1.amazonaws.com/Logomark_blue.png"
-            alt="DMRE Deal"
-            style={{ width: 24, height: 24 }}
-          />
-        ) : null;
-      },
+      field: "Name",
+      headerName: "Offer Name",
+      width: 200,
+      minWidth: 180
     },
     {
-      field: "compPrice",
-      headerName: "Comp Price",
-      width: isMobile ? 130 : 160, // Wider on mobile to show full header
-      valueFormatter: (params) => {
-        if (!params || params.value === undefined) return "";
-        return formatDollar(params.value);
-      },
+      field: "Offer_Status__c",
+      headerName: "Status",
+      width: 150,
+      minWidth: 120
     },
-    { field: "dealName", headerName: "Deal Name", width: isMobile ? 180 : 200, minWidth: 150 },
-    { field: "acreage", headerName: "Acreage", width: isMobile ? 120 : 140, minWidth: 120 },
-    { field: "useType", headerName: "Use Type", width: isMobile ? 140 : 160, minWidth: 140 },
-    { field: "focusedUse", headerName: "Focused Use", width: isMobile ? 150 : 170, minWidth: 150 },
-    { field: "compType", headerName: "Comp Type", width: isMobile ? 120 : 140, minWidth: 120 },
-    { field: "dealStage", headerName: "Deal Stage", fwidth: isMobile ? 150 : 170, minWidth: 150 },
     {
-      field: "closeDate",
-      headerName: "Close Date",
-      width: isMobile ? 130 : 150,
+      field: "Calculated_Purchase_Price__c",
+      headerName: "Purchase Price",
+      width: 160,
+      minWidth: 140,
+      valueFormatter: (params) => formatDollar(params.value)
+    },
+    {
+      field: "Effective_Date__c",
+      headerName: "Effective Date",
+      width: 150,
       minWidth: 130,
-      renderCell: (params) => {
-        const columnConfig = columnSettings.find(c => c.field === "closeDate");
-        const formatOption = columnConfig?.formatOption || "Date";
-        const shouldMask = columnConfig?.maskUnderContract;
-        const value = params.value;
-        const dealStage = params.row.dealStage;
-
-        console.log("Rendering close date cell:", {
-          value,
-          dealStage,
-          shouldMask,
-          row: params.row
-        });
-
-        // Apply masking only if toggle is enabled AND deal is Under Contract
-        if (shouldMask && dealStage === "Under Contract") {
-          return "-";
-        }
-
-        return formatCloseDate(value, formatOption);
-      },
-      valueFormatter: (params) => {
-        // Keep this simple for sorting/filtering - no masking applied here
-        const formatOption = columnSettings.find(c => c.field === "closeDate")?.formatOption || "Date";
-        return formatCloseDate(params.value, formatOption);
-      }
+      valueFormatter: (params) => formatDate(params.value)
     },
-    { field: "buyer", headerName: "Buyer", width: isMobile ? 180 : 200, minWidth: 150 },
-    { field: "city", headerName: "City", width: isMobile ? 130 : 150, minWidth: 130 },
-    { field: "purchasePrice", headerName: "Purchase Price", width: isMobile ? 150 : 170, minWidth: 150 },
-    { field: "priceDisplay", headerName: "Price Display", width: isMobile ? 140 : 160, minWidth: 140 },
-    { field: "calculatedPrice", headerName: "Calc. Price", width: isMobile ? 150 : 170, minWidth: 150 },
-    { field: "lotCount", headerName: "Lot Count", width: isMobile ? 120 : 140, minWidth: 120 },
-    { field: "frontFoot", headerName: "Front Foot", width: isMobile ? 120 : 140, minWidth: 120 },
-    { field: "pricingVerified", headerName: "Verified", width: isMobile ? 120 : 140, minWidth: 120, type: "boolean" },
-    { field: "latitude", headerName: "Lat", width: isMobile ? 180 : 200, minWidth: 180 },
-    { field: "longitude", headerName: "Lng", width: isMobile ? 180 : 200, minWidth: 180 },
+    {
+      field: "Offering_Company__r.Name",
+      headerName: "Company",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => params.row.Offering_Company__r?.Name || ""
+    },
+    {
+      field: "Lead_Broker__r.Full_Name__c",
+      headerName: "Lead Broker",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => params.row.Lead_Broker__r?.Full_Name__c || ""
+    },
+    {
+      field: "Total_Earnest_Money__c",
+      headerName: "Earnest Money",
+      width: 160,
+      minWidth: 140,
+      valueFormatter: (params) => formatDollar(params.value)
+    },
     {
       field: "actions",
       headerName: "",
       width: 120,
       sortable: false,
-      filterable: false,
-      disableColumnMenu: true,
-      isSpecial: true,
       renderCell: (params) => (
-        <>
-          <IconButton
-            sx={{ color: 'grey.500', '&:hover': { color: 'primary.main' } }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(params.row);
-            }}
-            size="small"
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            sx={{ color: 'grey.500', '&:hover': { color: 'error.main' } }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRemoveRow(params.id);
-            }}
-            size="small"
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </>
-      ),
-    },
+        <IconButton
+          onClick={() => window.open(`https://your.salesforce.instance.com/${params.id}`, '_blank')}
+        >
+          <OpenInNewIcon fontSize="small" />
+        </IconButton>
+      )
+    }
   ];
+
+  const feedbackColumns = [
+    {
+      field: "Name",
+      headerName: "Feedback Name",
+      width: 200,
+      minWidth: 180
+    },
+    {
+      field: "Status__c",
+      headerName: "Status",
+      width: 150,
+      minWidth: 120
+    },
+    {
+      field: "Feedback__c",
+      headerName: "Feedback",
+      width: 300,
+      minWidth: 250,
+      renderCell: (params) => (
+        <Tooltip title={params.value}>
+          <span>{params.value?.length > 50 ? `${params.value.substring(0, 50)}...` : params.value}</span>
+        </Tooltip>
+      )
+    },
+    {
+      field: "Buyer_Company__r.Name",
+      headerName: "Company",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => params.row.Buyer_Company__r?.Name || ""
+    },
+    {
+      field: "Buyer_Contact__r.Full_Name__c",
+      headerName: "Contact",
+      width: 200,
+      minWidth: 180,
+      valueGetter: (params) => params.row.Buyer_Contact__r?.Full_Name__c || ""
+    },
+    {
+      field: "CreatedDate",
+      headerName: "Created Date",
+      width: 150,
+      minWidth: 130,
+      valueFormatter: (params) => formatDate(params.value)
+    },
+    {
+      field: "actions",
+      headerName: "",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          onClick={() => window.open(`https://your.salesforce.instance.com/${params.id}`, '_blank')}
+        >
+          <OpenInNewIcon fontSize="small" />
+        </IconButton>
+      )
+    }
+  ];
+
+
+
+
+
+
 
   // Initialize rowOrder from localStorage or from cartItems
   const [rowOrder, setRowOrder] = useState(() => {
@@ -628,13 +704,7 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
           ? savedReport.column_settings
           : JSON.parse(savedReport.column_settings);
 
-        // Migrate existing settings to include maskUnderContract
-        return loadedSettings.map(col => ({
-          ...col,
-          maskUnderContract: col.field === "closeDate"
-            ? (col.maskUnderContract || false)
-            : undefined
-        }));
+        return loadedSettings;
       } catch (e) {
         console.error("Failed to parse saved column settings:", e);
       }
@@ -644,32 +714,29 @@ const ReportBuilder = ({ cartItems, setCartItems, onBack, onRemoveItem, onPrevie
     try {
       const savedSettings = localStorage.getItem("compReportColumnSettings");
       if (savedSettings) {
-        const parsed = JSON.parse(savedSettings);
-        // Migrate localStorage settings
-        return parsed.map(col => ({
-          ...col,
-          maskUnderContract: col.field === "closeDate"
-            ? (col.maskUnderContract || false)
-            : undefined
-        }));
+        return JSON.parse(savedSettings);
       }
     } catch (e) {
       console.error("Failed to parse localStorage column settings:", e);
     }
 
-    // 3. Fallback to default settings with maskUnderContract
-    return fullColumns.map(col => ({
-      field: col.field,
-      label: col.headerName,
-      hidden: false,
-      formatOption: col.field === "closeDate" ? "Date" :
-                   col.field === "compPrice" ? "Total" :
-                   undefined,
-      formatOptions: col.field === "closeDate" ? ["Date", "Month/Year", "Quarter/Year", "Year"] :
-                     col.field === "compPrice" ? ["Total", "PSF", "Per Acre", "Per Unit", "Per Paper Lot", "Per Finished Lot"] :
-                     undefined,
-      maskUnderContract: col.field === "closeDate" ? false : undefined
-    }));
+    // 3. Fallback to default settings for both types
+    return [
+      ...offerColumns.map(col => ({
+        field: col.field,
+        label: col.headerName,
+        hidden: false,
+        // Add format options if needed
+        ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
+      })),
+      ...feedbackColumns.map(col => ({
+        field: col.field,
+        label: col.headerName,
+        hidden: false,
+        // Add format options if needed
+        ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
+      }))
+    ];
   });
 
   const getFormatOption = (field) => {
@@ -815,19 +882,21 @@ const formattedRows = React.useMemo(() => {
     console.log("Removal completed for ID:", id);
   }, [onRemoveItem, setCartItems]);
 
-  // 1. First, modify your reset function to be more comprehensive
   const resetColumnSettings = () => {
-    const defaultSettings = fullColumns.map(col => ({
-      field: col.field,
-      label: col.headerName,
-      hidden: false,
-      formatOption: col.field === "closeDate" ? "Date" :
-                   col.field === "compPrice" ? "Total" :
-                   undefined,
-      formatOptions: col.field === "closeDate" ? ["Date", "Month/Year", "Quarter/Year", "Year"] :
-                     col.field === "compPrice" ? ["Total", "PSF", "Per Acre", "Per Unit", "Per Paper Lot", "Per Finished Lot"] :
-                     undefined,
-    }));
+    const defaultSettings = [
+      ...offerColumns.map(col => ({
+        field: col.field,
+        label: col.headerName,
+        hidden: false,
+        ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
+      })),
+      ...feedbackColumns.map(col => ({
+        field: col.field,
+        label: col.headerName,
+        hidden: false,
+        ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
+      }))
+    ];
 
     setColumnSettings(defaultSettings);
     localStorage.removeItem("compReportColumnSettings");
@@ -840,36 +909,20 @@ const formattedRows = React.useMemo(() => {
         const savedSettings = localStorage.getItem("compReportColumnSettings");
 
         if (!savedSettings) {
-          const defaultSettings = fullColumns
-            .filter(col => !col.isSpecial)
-            .map(col => {
-              if (col.field === "closeDate") {
-                return {
-                  field: col.field,
-                  label: col.headerName,
-                  hidden: false,
-                  formatOption: "Date",
-                  formatOptions: ["Date", "Month/Year", "Quarter/Year", "Year"],
-                };
-              } else if (col.field === "compPrice") {
-                return {
-                  field: col.field,
-                  label: col.headerName,
-                  hidden: false,
-                  formatOption: "Total",
-                  formatOptions: ["Total", "PSF", "Per Acre", "Per Unit", "Per Paper Lot", "Per Finished Lot"],
-                };
-              } else {
-                // For other fields, don't provide formatOptions.
-                return {
-                  field: col.field,
-                  label: col.headerName,
-                  hidden: false,
-                  formatOption: undefined,
-                  formatOptions: undefined,
-                };
-              }
-            });
+          const defaultSettings = [
+            ...offerColumns.map(col => ({
+              field: col.field,
+              label: col.headerName,
+              hidden: false,
+              ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
+            })),
+            ...feedbackColumns.map(col => ({
+              field: col.field,
+              label: col.headerName,
+              hidden: false,
+              ...(col.valueFormatter ? { formatOption: getDefaultFormatOption(col.field) } : {})
+            }))
+          ];
           setColumnSettings(defaultSettings);
           return;
         }
@@ -880,47 +933,20 @@ const formattedRows = React.useMemo(() => {
           return;
         }
 
-        // Create map of existing fields
-        const existingFields = new Set(parsed.map(c => c.field));
-
-        // Add missing regular columns (excluding special columns)
-        const missingColumns = fullColumns.filter(col =>
-          !col.isSpecial && !existingFields.has(col.field)
+        // Check if we need to migrate old settings
+        const needsMigration = parsed.some(setting =>
+          setting.formatOptions || setting.maskUnderContract
         );
 
-        if (missingColumns.length > 0) {
-          const updatedSettings = [
-            ...parsed,
-            ...missingColumns.map(col => {
-              if (col.field === "closeDate") {
-                return {
-                  field: col.field,
-                  label: col.headerName,
-                  hidden: false,
-                  formatOption: "Date",
-                  formatOptions: ["Date", "Month/Year", "Quarter/Year", "Year"],
-                };
-              } else if (col.field === "compPrice") {
-                return {
-                  field: col.field,
-                  label: col.headerName,
-                  hidden: false,
-                  formatOption: "Total",
-                  formatOptions: ["Total", "PSF", "Per Acre", "Per Unit", "Per Paper Lot", "Per Finished Lot"],
-                };
-              } else {
-                return {
-                  field: col.field,
-                  label: col.headerName,
-                  hidden: false,
-                  formatOption: undefined,
-                  formatOptions: undefined,
-                };
-              }
-            }),
-          ];
-          setColumnSettings(updatedSettings);
-          localStorage.setItem("compReportColumnSettings", JSON.stringify(updatedSettings));
+        if (needsMigration) {
+          const migratedSettings = parsed.map(setting => ({
+            field: setting.field,
+            label: setting.label,
+            hidden: setting.hidden,
+            formatOption: setting.formatOption
+          }));
+          setColumnSettings(migratedSettings);
+          localStorage.setItem("compReportColumnSettings", JSON.stringify(migratedSettings));
         }
       } catch (e) {
         console.error("Migration failed:", e);
@@ -962,88 +988,41 @@ const formattedRows = React.useMemo(() => {
   }, [columnSettings]);
 
   // Create DataGrid columns based on current configuration
-  const columnsToShow = [
-    // Process all configurable columns first
-    ...(Array.isArray(columnSettings) ? columnSettings : [])
-      .filter((cfg) => !cfg.hidden) // Only visible columns
-      .map((cfg) => {
-        const colDef = fullColumns.find((col) => col.field === cfg.field && !col.isSpecial);
-        if (!colDef) return null; // Skip if column definition not found
+  const getColumnsToShow = (columns, settings) => {
+    return columns
+      .filter(col => !col.isSpecial) // Filter out special columns first
+      .map(col => {
+        const config = settings.find(c => c.field === col.field);
+        if (!config || config.hidden) return null;
 
-        let valueFormatter;
-
-        if (cfg.field === "closeDate") {
-          valueFormatter = (params) => {
-            const value = (params && params.value !== undefined) ? params.value : params;
-            if (value === undefined || value === null || value === "") return "";
-            console.log("CloseDate valueFormatter params: ", params);
-            return formatCloseDate(value, cfg.formatOption || "Date");
-          };
-        } else if (cfg.field === "compPrice") {
-          valueFormatter = (params) => {
-            const value = (params && params.value !== undefined) ? params.value : params;
-            if (value === undefined || value === null || value === "") return "";
-
-            const format = cfg.formatOption || "Total";
-            const num = Number(value);
-            if (isNaN(num)) return "";
-
-            return format === "PSF"
-              ? `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : `$${Math.round(num).toLocaleString("en-US")}`;
+        // Apply formatting from settings if available
+        if (config.formatOption) {
+          return {
+            ...col,
+            valueFormatter: (params) => {
+              if (col.field.includes('Date')) {
+                return formatDate(params.value, config.formatOption);
+              }
+              if (col.field.includes('Price') || col.field.includes('Amount')) {
+                return formatDollar(params.value);
+              }
+              return params.value;
+            }
           };
         }
-        else if (cfg.field === "calculatedPrice") {
-          valueFormatter = (params) => {
-            const value = (params && params.value !== undefined) ? params.value : params;
-            if (value === undefined || value === null || value === "") return "";
-
-            const num = Number(value);
-            if (isNaN(num)) return "";
-
-            return `$${Math.round(num).toLocaleString("en-US")}`;
-          };
-        }
-        else if (cfg.field === "purchasePrice") {
-          valueFormatter = (params) => {
-            const value = (params && params.value !== undefined) ? params.value : params;
-            if (value === undefined || value === null || value === "") return "";
-
-            const num = Number(value);
-            if (isNaN(num)) return "";
-
-            return `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-          };
-        } else if (cfg.field === "lotCount") {
-          valueFormatter = (params) => {
-            const value = (params && params.value !== undefined) ? params.value : params;
-            if (value === undefined || value === null || value === "") return "";
-            return formatInteger(value);
-          };
-        } else if (cfg.field === "acreage") {
-          valueFormatter = (params) => {
-            const value = (params && params.value !== undefined) ? params.value : params;
-            if (value === undefined || value === null || value === "") return "";
-            return formatFloat(value);
-          };
-        }
-
-        return {
-          ...colDef,
-          headerName: cfg.field === "compPrice"
-            ? `${cfg.label} (${cfg.formatOption || "Total"})`
-            : cfg.label,
-          ...(valueFormatter ? { valueFormatter } : {}),
-        };
+        return col;
       })
-      .filter(Boolean),
+      .filter(Boolean);
+  };
 
-    // Always include the actions column at the end
-    fullColumns.find((col) => col.isSpecial)
-  ].filter(Boolean);
+  const offersColumnsToShow = getColumnsToShow(offerColumns, columnSettings);
+  const feedbackColumnsToShow = getColumnsToShow(feedbackColumns, columnSettings);
 
-  // Debugging
-  console.log("Columns in DataGrid:", columnsToShow.map(col => col.field));
+  console.log("Columns in DataGrid:",
+    activeTab === 0
+      ? offersColumnsToShow.map(col => col.field)
+      : feedbackColumnsToShow.map(col => col.field)
+  );
 
   // Handle saving column settings from modal
   const handleSaveColumnSettings = (updatedConfig) => {
@@ -1260,92 +1239,36 @@ const formattedRows = React.useMemo(() => {
         </Box>
       </Box>
 
-      {/* Scrollable Table Container */}
-      <Box
-        sx={{
-          flex: 1,
-          overflow: 'auto',
-          px: 2,
-        }}
-      >
-        <Box
-          sx={{
-            minWidth: isMobile ? '100%' : 1000,
-            '& .MuiDataGrid-columnHeaders': {
-              backgroundColor: theme.palette.grey[100],
-            },
-            '& .MuiDataGrid-cell': {
-              padding: isMobile ? '8px' : '16px',
-            }
-          }}
-        >
-          <DataGrid
-            getRowId={(row) => row.id || row.dealId}
-            rows={rowOrder.map(id => rows.find(r => r.id === id || r.dealId === id)).filter(Boolean)}
-            columns={columnsToShow}
-            pageSize={10}
-            rowsPerPageOptions={[5, 10, 25]}
-            autoHeight={false}
-            sortingMode="server" // This is important to prevent automatic client-side sorting
-            sortModel={sortModel}
-            onSortModelChange={(model) => {
-              setSortModel(model);
-              if (model.length > 0) {
-                // When sorting is applied, temporarily override rowOrder
-                const sortedRows = [...rows].sort((a, b) => {
-                  const field = model[0].field;
-                  const direction = model[0].sort === 'desc' ? -1 : 1;
+      {/* Replace the entire Scrollable Table Container section */}
+      <Box sx={{ flex: 1, overflow: 'auto', px: 2 }}>
+        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+          <Tab label={`Offers (${offers.length})`} />
+          <Tab label={`Feedback (${feedback.length})`} />
+        </Tabs>
 
-                  // Handle special formatting cases
-                  if (field === 'closeDate') {
-                    const dateA = new Date(a[field]).getTime();
-                    const dateB = new Date(b[field]).getTime();
-                    return direction * (dateA - dateB);
-                  }
+        <TabPanel value={activeTab} index={0}>
+          <Box sx={{ height: 400, width: '100%' }}>
+            <DataGrid
+              rows={offers}
+              columns={offersColumnsToShow}
+              getRowId={(row) => row.Id}  // Use Salesforce's Id field
+              pageSize={10}
+              rowsPerPageOptions={[5, 10, 25]}
+            />
+          </Box>
+        </TabPanel>
 
-                  // Handle numeric fields
-                  if (['compPrice', 'purchasePrice', 'calculatedPrice', 'acreage', 'lotCount'].includes(field)) {
-                    return direction * (Number(a[field]) - Number(b[field]));
-                  }
-
-                  // Default string comparison
-                  return direction * String(a[field]).localeCompare(String(b[field]));
-                });
-
-                setRowOrder(sortedRows.map(row => row.id || row.dealId));
-              } else {
-                // When sorting is cleared, revert to original rowOrder
-                if (savedReport?.row_order) {
-                  setRowOrder(Array.isArray(savedReport.row_order)
-                    ? savedReport.row_order
-                    : JSON.parse(savedReport.row_order));
-                } else {
-                  setRowOrder(rows.map(row => row.id || row.dealId));
-                }
-              }
-            }}
-            disableColumnMenu={true}
-            sx={{
-              height: '100%',
-              minHeight: 300,
-              '& .MuiDataGrid-virtualScroller': {
-                minHeight: '200px',
-              },
-              '& .MuiDataGrid-columnHeaderTitle': {
-                whiteSpace: 'normal',
-                lineHeight: '1.2',
-                fontSize: isMobile ? '0.75rem' : '0.875rem',
-              },
-              '& .MuiDataGrid-cell': {
-                fontSize: isMobile ? '0.75rem' : '0.875rem',
-              },
-              '& .MuiDataGrid-cell--actions': {
-                padding: 0,
-                justifyContent: 'center',
-              }
-            }}
-          />
-        </Box>
+        <TabPanel value={activeTab} index={1}>
+          <Box sx={{ height: 400, width: '100%' }}>
+            <DataGrid
+              rows={feedback}
+              columns={feedbackColumnsToShow}
+              getRowId={(row) => row.Id}  // Use Salesforce's Id field
+              pageSize={10}
+              rowsPerPageOptions={[5, 10, 25]}
+            />
+          </Box>
+        </TabPanel>
       </Box>
 
       {/* Sticky Footer Buttons */}
@@ -1473,8 +1396,12 @@ const formattedRows = React.useMemo(() => {
       <ColumnSettingsModal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        columns={columnSettings}
-        onSave={handleSaveColumnSettings}
+        columns={activeTab === 0 ? offerColumns : feedbackColumns}
+        currentSettings={columnSettings}
+        onSave={(updatedSettings) => {
+          setColumnSettings(updatedSettings);
+          setIsModalOpen(false);
+        }}
       />
 
       <RowOrderModal

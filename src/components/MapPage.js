@@ -1170,6 +1170,7 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
         setCartItems={setCartItems}
         setSelectedPolygons={setSelectedPolygons}
         onClearAll={handleClearAll}
+        setReportData={setReportData}
       />
 
       <CompReportsSidebar
@@ -1252,6 +1253,7 @@ const MapPage = ({ user, userData, onEditProfile, refreshUserData }) => {
           onContextUpdate={(newContext) => setReportEditingContext(newContext)}
           rows={liveRows || []}                 // ✅ default to []
           setRows={setLiveRows || (() => {})}   // ✅ fallback to no-op
+          reportData={reportData} 
         />
       )}
 
