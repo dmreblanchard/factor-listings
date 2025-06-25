@@ -179,7 +179,7 @@ const ColumnItem = ({ column, index, onRename, onHideToggle, openFormatModal, on
 };
 
 const ColumnSettingsModal = ({ open, onClose, columns, onSave }) => {
-  const [localCols, setLocalCols] = useState(columns || []);
+
   const [selectedFormatColumn, setSelectedFormatColumn] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -188,9 +188,13 @@ const ColumnSettingsModal = ({ open, onClose, columns, onSave }) => {
     useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } })
   );
 
+  const [localCols, setLocalCols] = useState(
+    (columns || []).filter(col => !col.hideInSettings)
+  );
+
   useEffect(() => {
     if (open) {
-      setLocalCols(columns || []);
+      setLocalCols((columns || []).filter(col => !col.hideInSettings));
       setHasChanges(false);
     }
   }, [open, columns]);
@@ -228,8 +232,13 @@ const ColumnSettingsModal = ({ open, onClose, columns, onSave }) => {
 
   const handleClose = () => {
     if (hasChanges) {
-      console.log("🧠 Final column settings being saved:", localCols);
-      onSave(localCols);
+      // Merge back with original columns to preserve hidden ones
+      const updatedSettings = columns.map(col => {
+        const updatedCol = localCols.find(lc => lc.field === col.field);
+        return updatedCol || col;
+      });
+      console.log("🧠 Final column settings being saved:", updatedSettings);
+      onSave(updatedSettings);
     }
     onClose();
   };

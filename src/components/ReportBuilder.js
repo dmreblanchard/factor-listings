@@ -172,51 +172,113 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     { field: 'Offering_Company__r.Name', headerName: 'Company', width: 200 },
   ]);
 
+  const baseColumnProps = {
+    minWidth: 120,       // Default minimum width
+    sortable: true,      // Default to sortable
+    filterable: true,     // Default to filterable
+    disableColumnMenu: false, // Default menu behavior
+    hidden: false         // Default visibility
+  };
+
   const offerColumns = [
     {
-      field: "Name",
-      headerName: "Offer Name",
+      ...baseColumnProps,
+      field: "Offering_Contact_Name",
+      headerName: "Contact",
       width: 200,
-      minWidth: 180
     },
     {
-      field: "Offer_Status__c",
-      headerName: "Status",
-      width: 150,
-      minWidth: 120
+      ...baseColumnProps,
+      field: "Offering_Company_Name",
+      headerName: "Company",
+      width: 200,
     },
     {
+      ...baseColumnProps,
       field: "Calculated_Purchase_Price__c",
       headerName: "Purchase Price",
       width: 160,
       minWidth: 140,
     },
     {
-      field: "Effective_Date__c",
-      headerName: "Effective Date",
-      width: 150,
-      minWidth: 130,
+      ...baseColumnProps,
+      field: "Total_Earnest_Money__c",
+      headerName: "Total Earnest Money",
+      width: 160,
+      minWidth: 140,
     },
     {
-      field: "Offering_Contact_Name",
-      headerName: "Contact",
-      width: 200,
+      ...baseColumnProps,
+      field: "Feasibility_Period__c",
+      headerName: "Feasibility Period (Days)",
+      width: 160,
+      minWidth: 140,
     },
     {
-      field: "Offering_Company_Name",
-      headerName: "Company",
-      width: 200,
+      ...baseColumnProps,
+      field: "Number_of_feasibility_extensions__c",
+      headerName: "Feasibility Extensions",
+      width: 160,
+      minWidth: 140,
     },
     {
-      field: "Lead_Broker_Name",
-      headerName: "Lead Broker",
-      width: 200,
+      ...baseColumnProps,
+      field: "Days_in_each_feasibility_extension__c",
+      headerName: "Days in Feasibility Extensions",
+      width: 160,
+      minWidth: 140,
+    },
+    {
+      ...baseColumnProps,
+      field: "Zoning_Approval_Period__c",
+      headerName: "Zoning Approval (Days)",
+      width: 160,
+      minWidth: 140,
+    },
+    {
+      ...baseColumnProps,
+      field: "Number_of_zoning_extensions__c",
+      headerName: "Zoning Extensions",
+      width: 160,
+      minWidth: 140,
+    },
+    {
+      ...baseColumnProps,
+      field: "Days_in_each_zoning_extension__c",
+      headerName: "Days in Zoning Extensions",
+      width: 160,
+      minWidth: 140,
+    },
+    {
+      ...baseColumnProps,
+      field: "Closing_Period__c",
+      headerName: "Closing Period (Days)",
+      width: 160,
+      minWidth: 140,
+    },
+    {
+      ...baseColumnProps,
+      field: "Number_of_closing_extensions__c",
+      headerName: "Closing Extensions",
+      width: 160,
+      minWidth: 140,
+    },
+    {
+      ...baseColumnProps,
+      field: "Days_in_each_closing_extension__c",
+      headerName: "Days in Closing Extensions",
+      width: 160,
+      minWidth: 140,
     },
     {
       field: "actions",
       headerName: "",
       width: 120,
       sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      isSpecial: true,
+      hideInSettings: true,
       renderCell: (params) => (
         <IconButton
           onClick={() => window.open(
@@ -232,18 +294,21 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
 
   const feedbackColumns = [
     {
+      ...baseColumnProps,
       field: "Name",
       headerName: "Feedback Name",
       width: 200,
       minWidth: 180
     },
     {
+      ...baseColumnProps,
       field: "Status__c",
       headerName: "Status",
       width: 150,
       minWidth: 120
     },
     {
+      ...baseColumnProps,
       field: "Feedback__c",
       headerName: "Feedback",
       width: 300,
@@ -259,18 +324,21 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       )
     },
     {
+      ...baseColumnProps,
       field: "Buyer_Company_Name",
       headerName: "Company",
       width: 200,
       minWidth: 180,
     },
     {
+      ...baseColumnProps,
       field: "Buyer_Contact_Name",
       headerName: "Contact",
       width: 200,
       minWidth: 180,
     },
     {
+      ...baseColumnProps,
       field: "CreatedDate",
       headerName: "Created Date",
       width: 150,
@@ -281,6 +349,10 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       headerName: "",
       width: 120,
       sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      isSpecial: true,
+      hideInSettings: true,
       renderCell: (params) => (
         <IconButton
           onClick={() => window.open(
@@ -1429,7 +1501,7 @@ const formattedRows = React.useMemo(() => {
               Generating...
               <CircularProgress size={24} sx={{ ml: 1 }} />
             </>
-          ) : 'PREVIEW COMP'}
+          ) : 'PREVIEW REPORT'}
         </Button>
       </Box>
 
@@ -1437,13 +1509,18 @@ const formattedRows = React.useMemo(() => {
       <ColumnSettingsModal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        columns={activeTab === 0 ? offerColumns : feedbackColumns}
+        columns={(activeTab === 0 ? offerColumns : feedbackColumns).map(col => ({
+          ...col,
+          label: col.headerName || col.field, // Use headerName if available, fallback to field
+        }))}
         currentSettings={columnSettings}
         onSave={(updatedSettings) => {
           setColumnSettings(updatedSettings);
           setIsModalOpen(false);
         }}
       />
+      {console.log('Columns being passed to modal:',
+        activeTab === 0 ? offerColumns : feedbackColumns)}
 
       <RowOrderModal
         open={isRowModalOpen}
