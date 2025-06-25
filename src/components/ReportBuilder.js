@@ -132,11 +132,7 @@ function TabPanel(props) {
 
 const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveItem, onPreviewPDF, userData, savedReport, onNavigateToMap, isEditingReport, onReturnToMap, initialGeoData, reportId, reportStatus, onContextUpdate, liveRows, setLiveRows, ...props }) => {
 
-  console.log("🧠 Geojson received in ReportBuilder:", initialGeoData);
-  console.log("🧠 Geojson received from Edit Request:", savedReport?.geo_data);
-  console.log("Current report ID:", reportId);
-  console.log("Current status:", reportStatus);
-  console.log("Cart Items: ", cartItems);
+  console.log("Report Data: ", reportData)
   // Add to your state
   const [isRowModalOpen, setIsRowModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -194,33 +190,27 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       headerName: "Purchase Price",
       width: 160,
       minWidth: 140,
-      valueFormatter: (params) => formatDollar(params?.value)
     },
     {
       field: "Effective_Date__c",
       headerName: "Effective Date",
       width: 150,
       minWidth: 130,
-      valueFormatter: (params) => formatDate(params?.value)
     },
     {
-      field: "Offering_Contact__r.Full_Name__c",
+      field: "Offering_Contact_Name",
       headerName: "Contact",
       width: 200,
-      minWidth: 180,
-      valueGetter: (params) => {
-        // Safely access nested properties
-        return params?.row?.Offering_Contact__r?.Full_Name__c || "N/A";
-      }
     },
     {
-      field: "Lead_Broker__r.Full_Name__c",
+      field: "Offering_Company_Name",
+      headerName: "Company",
+      width: 200,
+    },
+    {
+      field: "Lead_Broker_Name",
       headerName: "Lead Broker",
       width: 200,
-      minWidth: 180,
-      valueGetter: (params) => {
-        return params?.row?.Lead_Broker__r?.Full_Name__c || "N/A";
-      }
     },
     {
       field: "actions",
@@ -229,7 +219,10 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       sortable: false,
       renderCell: (params) => (
         <IconButton
-          onClick={() => window.open(`https://your.salesforce.instance.com/${params?.id}`, '_blank')}
+          onClick={() => window.open(
+            `https://dmre.lightning.force.com/lightning/r/Offer__c/${params?.id || ""}/view`,
+            '_blank'
+          )}
         >
           <OpenInNewIcon fontSize="small" />
         </IconButton>
@@ -266,29 +259,22 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       )
     },
     {
-      field: "Buyer_Company__r.Name",
+      field: "Buyer_Company_Name",
       headerName: "Company",
       width: 200,
       minWidth: 180,
-      valueGetter: (params) => {
-        return params?.row?.Buyer_Company__r?.Name || "N/A";
-      }
     },
     {
-      field: "Buyer_Contact__r.Full_Name__c",
+      field: "Buyer_Contact_Name",
       headerName: "Contact",
       width: 200,
       minWidth: 180,
-      valueGetter: (params) => {
-        return params?.row?.Buyer_Contact__r?.Full_Name__c || "N/A";
-      }
     },
     {
       field: "CreatedDate",
       headerName: "Created Date",
       width: 150,
       minWidth: 130,
-      valueFormatter: (params) => formatDate(params?.value)
     },
     {
       field: "actions",
@@ -298,7 +284,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       renderCell: (params) => (
         <IconButton
           onClick={() => window.open(
-            `https://your.salesforce.instance.com/${params?.id || ""}`,
+            `https://dmre.lightning.force.com/lightning/r/Buyer_Feedback__c/${params?.id || ""}/view`,
             '_blank'
           )}
         >
@@ -315,13 +301,11 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
         field: col.field,
         label: col.headerName,
         hidden: false,
-        formatOption: col.field.includes('Date') ? 'Date' : undefined
       })),
       ...feedbackColumns.map(col => ({
         field: col.field,
         label: col.headerName,
         hidden: false,
-        formatOption: col.field.includes('Date') ? 'Date' : undefined
       }))
     ];
 
@@ -393,6 +377,8 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     setEditModalOpen(true);
     console.log('Editing row with dealId:', row.dealId); // Add this line
   };
+
+
 
   // In ReportBuilder.js
   const handleInternalPreview = async () => {
@@ -1049,11 +1035,20 @@ const formattedRows = React.useMemo(() => {
   const offersColumnsToShow = getColumnsToShow(offerColumns, columnSettings);
   const feedbackColumnsToShow = getColumnsToShow(feedbackColumns, columnSettings);
 
-  console.log("Columns in DataGrid:",
-    activeTab === 0
-      ? offersColumnsToShow.map(col => col.field)
-      : feedbackColumnsToShow.map(col => col.field)
-  );
+  const flattenedOffers = offers.map((offer) => ({
+    ...offer,
+    Lead_Broker_Name: offer?.Lead_Broker__r?.Full_Name__c || 'N/A',
+    Offering_Contact_Name: offer?.Offering_Contact__r?.Full_Name__c || 'N/A',
+    Offering_Company_Name: offer?.Offering_Company__r?.Name || 'N/A',
+  }));
+  console.log("Flattened offer sample row:", flattenedOffers[0]);
+
+  const flattenedFeedback = feedback.map((feedback) => ({
+    ...feedback,
+    Buyer_Company_Name: feedback?.Buyer_Company__r?.Name || 'N/A',
+    Buyer_Contact_Name: feedback?.Buyer_Contact__r?.Full_Name__c || 'N/A',
+  }));
+  console.log("Flattened feedback sample row:", flattenedFeedback[0]);
 
   // Handle saving column settings from modal
   const handleSaveColumnSettings = (updatedConfig) => {
@@ -1285,8 +1280,10 @@ const formattedRows = React.useMemo(() => {
               rowCount: offers.length,
               columnCount: offersColumnsToShow.length
             })}
+            {console.log('offersColumnsToShow:', offersColumnsToShow)}
+            {console.log('offers data sample:', offers.slice(0, 1))} {/* Also log a sample row */}
             <DataGrid
-              rows={offers}
+              rows={flattenedOffers}
               columns={offersColumnsToShow}
               getRowId={(row) => row.Id}  // Use Salesforce's Id field
               pageSize={10}
@@ -1305,7 +1302,7 @@ const formattedRows = React.useMemo(() => {
               columnCount: feedbackColumnsToShow.length
             })}
             <DataGrid
-              rows={feedback}
+              rows={flattenedFeedback}
               columns={feedbackColumnsToShow}
               getRowId={(row) => row.Id}  // Use Salesforce's Id field
               pageSize={10}
