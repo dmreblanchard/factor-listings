@@ -178,8 +178,8 @@ const ColumnItem = ({ column, index, onRename, onHideToggle, openFormatModal, on
   );
 };
 
-const ColumnSettingsModal = ({ open, onClose, columns, onSave }) => {
-
+const ColumnSettingsModal = ({ open, onClose, allColumns, currentSettings, onSave }) => {
+  const [localCols, setLocalCols] = useState([]);
   const [selectedFormatColumn, setSelectedFormatColumn] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -188,16 +188,34 @@ const ColumnSettingsModal = ({ open, onClose, columns, onSave }) => {
     useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } })
   );
 
-  const [localCols, setLocalCols] = useState(
-    (columns || []).filter(col => !col.hideInSettings)
-  );
-
+  // Initialize with current settings
   useEffect(() => {
-    if (open) {
-      setLocalCols((columns || []).filter(col => !col.hideInSettings));
+    if (open && allColumns) {
+      // Debug log to see what's being received
+      console.log('Initializing modal with:', {
+        allColumns,
+        currentSettings
+      });
+
+      const filteredColumns = allColumns
+        .filter(col => col && !col.hideInSettings)
+        .map(col => {
+          const settings = currentSettings[col.field] || {};
+          return {
+            ...col,
+            ...settings,
+            hidden: settings.hidden || false,
+            label: col.headerName || col.label || col.field
+          };
+        });
+
+      console.log('Processed columns:', filteredColumns);
+      setLocalCols(filteredColumns);
       setHasChanges(false);
+    } else {
+      setLocalCols([]);
     }
-  }, [open, columns]);
+  }, [open, allColumns, currentSettings]);
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
@@ -215,7 +233,10 @@ const ColumnSettingsModal = ({ open, onClose, columns, onSave }) => {
   const handleHideToggle = (idx) => {
     setLocalCols(prev => {
       const updated = [...prev];
-      updated[idx] = { ...updated[idx], hidden: !updated[idx].hidden };
+      updated[idx] = {
+        ...updated[idx],
+        hidden: !updated[idx].hidden
+      };
       setHasChanges(true);
       return updated;
     });
@@ -232,30 +253,30 @@ const ColumnSettingsModal = ({ open, onClose, columns, onSave }) => {
 
   const handleClose = () => {
     if (hasChanges) {
-      // Merge back with original columns to preserve hidden ones
-      const updatedSettings = columns.map(col => {
-        const updatedCol = localCols.find(lc => lc.field === col.field);
-        return updatedCol || col;
+      // Convert array back to settings object
+      const updatedSettings = {};
+      localCols.forEach(col => {
+        updatedSettings[col.field] = {
+          hidden: col.hidden,
+          // Preserve other settings
+          ...currentSettings[col.field],
+          // Update with new values
+          ...col
+        };
       });
-      console.log("🧠 Final column settings being saved:", updatedSettings);
-      onSave(updatedSettings);
+
+      // Merge with existing settings to preserve hidden columns
+      const finalSettings = {
+        ...currentSettings,
+        ...updatedSettings
+      };
+
+      onSave(finalSettings);
     }
     onClose();
   };
 
-  const [editedColumns, setEditedColumns] = useState([...columns]);
 
-  const handleToggleVisibility = (index) => {
-    const updated = [...editedColumns];
-    updated[index].hidden = !updated[index].hidden;
-    setEditedColumns(updated);
-  };
-
-  const handleFormatChange = (index, formatOption) => {
-    const updated = [...editedColumns];
-    updated[index].formatOption = formatOption;
-    setEditedColumns(updated);
-  };
 
   const handleMaskToggle = (index) => {
     setLocalCols(prev => {

@@ -368,18 +368,27 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
 
   const [columnSettings, setColumnSettings] = useState(() => {
     // Create default settings that show all columns
-    const defaultSettings = [
-      ...offerColumns.map(col => ({
-        field: col.field,
-        label: col.headerName,
-        hidden: false,
-      })),
-      ...feedbackColumns.map(col => ({
-        field: col.field,
-        label: col.headerName,
-        hidden: false,
-      }))
-    ];
+    const initialSettings = {};
+
+    // Process offer columns
+    offerColumns.forEach(col => {
+      if (!col.hideInSettings) {
+        initialSettings[col.field] = {
+          hidden: false,
+          ...col
+        };
+      }
+    });
+
+    // Process feedback columns if needed
+    feedbackColumns.forEach(col => {
+      if (!col.hideInSettings && !initialSettings[col.field]) {
+        initialSettings[col.field] = {
+          hidden: false,
+          ...col
+        };
+      }
+    });
 
     // Then try to load saved settings
     try {
@@ -387,11 +396,11 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
         const saved = typeof savedReport.column_settings === 'string'
           ? JSON.parse(savedReport.column_settings)
           : savedReport.column_settings;
-        return saved || defaultSettings;
+        return saved || initialSettings;
       }
-      return defaultSettings;
+      return initialSettings;
     } catch (e) {
-      return defaultSettings;
+      return initialSettings;
     }
   });
 
@@ -465,7 +474,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       const orderedRows = dataSource.map((row, index) => {
         // For offers, check if we need to mask dates
         if (activeTab === 0) {
-          const closeDateSetting = columnSettings.find(c => c.field === "Effective_Date__c");
+          const closeDateSetting = columnSettings["Effective_Date__c"];
           const shouldMask = closeDateSetting?.maskUnderContract;
 
           return {
@@ -825,7 +834,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
 
 
   const getFormatOption = (field) => {
-    const setting = columnSettings.find(c => c.field === field);
+    const setting = columnSettings[field]; // Direct object access
     return setting?.formatOption || (field === "closeDate" ? "Date" : undefined);
   };
 
@@ -846,7 +855,7 @@ const formattedRows = React.useMemo(() => {
 
   return cartItems.map((item, index) => {
     // Get the current format option for compPrice
-    const compPriceFormat = columnSettings.find(c => c.field === "compPrice")?.formatOption || "Total";
+    const compPriceFormat = columnSettings["compPrice"]?.formatOption || "Total";
 
     // Ensure that for DMRE deals, outsideCloseDate is used if closeDate is missing
     const closeDate = item.properties?.closeDate
@@ -1073,35 +1082,36 @@ const formattedRows = React.useMemo(() => {
   }, [columnSettings]);
 
   // Create DataGrid columns based on current configuration
-  const getColumnsToShow = (columns = [], settings = []) => {
-    if (!Array.isArray(columns)) return [];
+  const getColumnsToShow = (columns = [], settings = {}) => {
+      if (!Array.isArray(columns)) return [];
 
-    return columns
-      .filter(col => col && !col.isSpecial)
-      .map(col => {
-        if (!col || !col.field) return null;
+      return columns
+        .filter(col => col && !col.isSpecial)
+        .map(col => {
+          if (!col || !col.field) return null;
 
-        const config = settings.find(c => c && c.field === col.field);
-        if (config?.hidden) return null;
+          // Changed from settings.find() to direct object access
+          const config = settings[col.field];
+          if (config?.hidden) return null;
 
-        // Return column with formatting if specified
-        return {
-          ...col,
-          ...(config?.formatOption && {
-            valueFormatter: (params) => {
-              if (!params.value) return '';
-              if (col.field.includes('Date')) {
-                return formatDate(params.value, config.formatOption);
+          // Return column with formatting if specified
+          return {
+            ...col,
+            ...(config?.formatOption && {
+              valueFormatter: (params) => {
+                if (!params.value) return '';
+                if (col.field.includes('Date')) {
+                  return formatDate(params.value, config.formatOption);
+                }
+                if (col.field.includes('Price') || col.field.includes('Amount')) {
+                  return formatDollar(params.value);
+                }
+                return params.value;
               }
-              if (col.field.includes('Price') || col.field.includes('Amount')) {
-                return formatDollar(params.value);
-              }
-              return params.value;
-            }
-          })
-        };
-      })
-      .filter(Boolean);
+            })
+          };
+        })
+        .filter(Boolean);
   };
 
   const offersColumnsToShow = getColumnsToShow(offerColumns, columnSettings);
@@ -1513,6 +1523,7 @@ const formattedRows = React.useMemo(() => {
           ...col,
           label: col.headerName || col.field, // Use headerName if available, fallback to field
         }))}
+        allColumns={activeTab === 0 ? offerColumns : feedbackColumns}
         currentSettings={columnSettings}
         onSave={(updatedSettings) => {
           setColumnSettings(updatedSettings);
