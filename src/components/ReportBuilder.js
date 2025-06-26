@@ -17,7 +17,6 @@ import {
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import ColumnSettingsModal from "./ColumnSettingsModal";
-import EditRowModal from './EditRowModal';
 import EditIcon from '@mui/icons-material/Edit';
 import TextField from "@mui/material/TextField";
 import CloseIcon from "@mui/icons-material/Close";
@@ -39,10 +38,8 @@ import TableRowsOutlinedIcon from '@mui/icons-material/TableRowsOutlined';
 import CompPreview from "./CompPreview";
 import CircularProgress from '@mui/material/CircularProgress';
 import CheckIcon from '@mui/icons-material/Check';
-import { generateMapboxStaticUrl } from './generateMap'; // assuming you saved it as generateMap.js
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Tooltip from '@mui/material/Tooltip';
-
 
 function formatDollar(value) {
   if (value === null || value === undefined || value === '') return "";
@@ -56,12 +53,6 @@ function formatInteger(value) {
   if (value === null || value === undefined) return "";
   const num = Number(value);
   return isNaN(num) ? "" : Math.round(num).toString();
-}
-
-function formatFloat(value) {
-  if (value === null || value === undefined) return "";
-  const num = Number(value);
-  return isNaN(num) ? "" : num.toFixed(2);
 }
 
 function formatDate(value, formatOption = "Date") {
@@ -108,8 +99,6 @@ function TabPanel(props) {
 
 const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveItem, onPreviewPDF, userData, savedReport, onNavigateToMap, isEditingReport, onReturnToMap, initialGeoData, reportId, reportStatus, onContextUpdate, liveRows, setLiveRows, ...props }) => {
 
-  console.log("Report Data: ", reportData)
-  // Add to your state
   const [isRowModalOpen, setIsRowModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [currentRow, setCurrentRow] = useState(null);
@@ -138,20 +127,9 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   });
   const [activeTab, setActiveTab] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-
   const [commentModalOpen, setCommentModalOpen] = useState(false);
   const [editingCommentRowId, setEditingCommentRowId] = useState(null);
   const [editingCommentValue, setEditingCommentValue] = useState('');
-  const saveEditedComment = async (id, newValue) => {
-    console.log(`Saving comment for row ${id}:`, newValue);
-
-    // TODO: Replace with your actual save logic (e.g. call to API / Lambda / Supabase)
-    // Example:
-    // await api.saveComment({ id, comment: newValue });
-
-    // Optionally, update local state or re-fetch offers
-  };
-  // State for offers
   const [offers, setOffers] = useState([]);
   const [offersColumns, setOffersColumns] = useState([
     { field: 'Name', headerName: 'Offer Name', width: 200 },
@@ -160,6 +138,9 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     { field: 'Effective_Date__c', headerName: 'Effective Date', width: 150 },
     { field: 'Offering_Company__r.Name', headerName: 'Company', width: 200 },
   ]);
+
+  const [offerRowOrder, setOfferRowOrder] = useState([]);
+  const [feedbackRowOrder, setFeedbackRowOrder] = useState([]);
 
   const baseColumnProps = {
     minWidth: 120,       // Default minimum width
@@ -203,6 +184,12 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
           const val = params.row?.Total_Earnest_Money__c;
           return formatDollar(val);
         }
+      },
+      {
+        ...baseColumnProps,
+        field: "Primary_Use_Type__c",
+        headerName: "Primary Uses",
+        width: 200,
       },
       {
         ...baseColumnProps,
@@ -417,6 +404,41 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       }
     },
     {
+      ...baseColumnProps,
+      field: "Feedback_Report_Comments__c",
+      headerName: "Feedback Comments",
+      width: 300,
+      renderCell: (params) => {
+        const { id, value } = params;
+
+        return (
+          <Box
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingCommentRowId(id);
+              setEditingCommentValue(value || '');
+              setCommentModalOpen(true);
+            }}
+            sx={{
+              cursor: 'pointer',
+              width: '100%',
+              height: '100%',
+              padding: '0 8px',
+              display: 'flex',
+              alignItems: 'center',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            {value?.trim()
+              ? value
+              : <span style={{ color: '#888' }}>Click to add comment</span>}
+          </Box>
+        );
+      }
+    },
+    {
       field: "actions",
       headerName: "",
       width: 120,
@@ -476,21 +498,22 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     }
   });
 
-  // State for feedback
   const [feedback, setFeedback] = useState([]);
 
-
-  // Column settings modals
-  const [isOffersModalOpen, setIsOffersModalOpen] = useState(false);
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  useEffect(() => {
+    if (offers.length > 0) {
+      setOfferRowOrder(offers.map(row => row.Id || row.id));
+    }
+  }, [offers]);
 
   useEffect(() => {
-    console.log("Current column settings:", columnSettings);
-    console.log("Offer columns:", offerColumns);
-    console.log("Generated offers columns:", getColumnsToShow(offerColumns, columnSettings));
-    console.log("Feedback columns:", feedbackColumns);
-    console.log("Generated feedback columns:", getColumnsToShow(feedbackColumns, columnSettings));
-  }, [columnSettings]);
+    if (feedback.length > 0) {
+      setFeedbackRowOrder(feedback.map(row => row.Id || row.id));
+    }
+  }, [feedback]);
+
+  const [isOffersModalOpen, setIsOffersModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -521,17 +544,6 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       }
     }
   }, [reportData]);
-
-  const handleEdit = (row) => {
-    setCurrentRow({
-      ...row,
-      dealId: row.dealId // Ensure dealId is included
-    });
-    setEditModalOpen(true);
-    console.log('Editing row with dealId:', row.dealId); // Add this line
-  };
-
-
 
   // In ReportBuilder.js
   const handleInternalPreview = async () => {
@@ -626,66 +638,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     }
   };
 
-  const handleSaveChanges = async (updatedData) => {
-    try {
-      // 1. Optimistic update
-      setRows(prevRows => {
-        const updatedRows = prevRows.map(row =>
-          row.dealId === updatedData.dealId ? { ...row, ...updatedData } : row
-        );
-        console.log("Updated row in ReportBuilder:", updatedRows.find(r => r.dealId === updatedData.dealId));
-        return updatedRows;
-      });
-
-      // 2. Update cartItems (pass-through to keep both in sync)
-      setCartItems(prevItems =>
-        prevItems.map(item =>
-          item.properties.dealId === updatedData.dealId
-            ? {
-                ...item,
-                properties: {
-                  ...item.properties,
-                  ...updatedData
-                }
-              }
-            : item
-        )
-      );
-
-      // 3. Optional: Pull fresh data
-      const refreshResponse = await fetch(
-        `https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/${updatedData.dealId}`
-      );
-      const freshData = await refreshResponse.json();
-
-      // 4. Use refreshed data in both places
-      setRows(prevRows =>
-        prevRows.map(row =>
-          row.dealId === updatedData.dealId ? { ...row, ...freshData } : row
-        )
-      );
-      setCartItems(prevItems =>
-        prevItems.map(item =>
-          item.properties.dealId === updatedData.dealId
-            ? {
-                ...item,
-                properties: {
-                  ...item.properties,
-                  ...freshData
-                }
-              }
-            : item
-        )
-      );
-
-      return true;
-    } catch (error) {
-      console.error('Failed to save changes:', error);
-      return false;
-    }
-  };
-
-  const RowOrderModal = React.memo(({ open, onClose, rows, rowOrder, setRowOrder }) => {
+  const RowOrderModal = React.memo(({ open, onClose, rows, rowOrder, setRowOrder, rowType }) => {
     const handleModalDragEnd = (event) => {
       const { active, over } = event;
       if (active?.id !== over?.id) {
@@ -697,20 +650,19 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       }
     };
 
-    // Update your sortable row component for a softer look:
-    const SortableRow = ({ id, row }) => {
+    const SortableRow = ({ id, row, rowType }) => {
       const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+
       const style = {
         transform: CSS.Transform.toString(transform),
         transition: transition || 'none',
         display: 'flex',
         alignItems: 'center',
         padding: '12px',
-        borderBottom: '1px solid #ddd', // subtle bottom border only
+        borderBottom: '1px solid #ddd',
         backgroundColor: '#fff',
-        borderTopLeftRadius: '8px',      // slight rounding on top
+        borderTopLeftRadius: '8px',
         borderTopRightRadius: '8px',
-        //touchAction: 'none',             // ensure touch events work correctly
       };
 
       return (
@@ -718,17 +670,16 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
           <Box {...listeners} sx={{ cursor: 'grab', mr: 2, touchAction: 'none' }}>
             <DragIndicatorIcon />
           </Box>
-          {/* Conditionally render the DMRE logo */}
-          {row.isDMRE && (
-            <img
-              src="https://factor-mind-assets.s3.us-east-1.amazonaws.com/Logomark_blue.png"
-              alt="DMRE Deal"
-              style={{ width: 16, height: 16, marginRight: 8 }}
-            />
+
+          {rowType === 'offers' ? (
+            <Typography variant="body1">
+              {(row.Offering_Company_Name || row.Offering_Contact_Name || 'Unnamed')} • {row.Primary_Use_Type__c || '—'} • {row.Calculated_Purchase_Price__c || 0}
+            </Typography>
+          ) : (
+            <Typography variant="body1">
+              {(row.Buyer_Company_Name || row.Buyer_Contact_Name || 'Unnamed')} • {row.Status__c || 'No Status'}
+            </Typography>
           )}
-          <Typography variant="body1">
-            {row.dealName} • {row.useType} • {row.acreage} acres
-          </Typography>
         </div>
       );
     };
@@ -741,7 +692,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box display="flex" alignItems="center" gap={1}>
               <TableRowsOutlinedIcon color="primary" />
-              <Typography variant="h6" fontWeight="bold">Reorder Rows</Typography>
+              <Typography variant="h6" fontWeight="bold">Reorder {rowType === 'offers' ? 'Offers' : 'Feedback'}</Typography>
             </Box>
             <IconButton onClick={onClose}>
               <CloseIcon />
@@ -749,85 +700,29 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
           </Box>
         </DialogTitle>
         <DialogContent dividers>
-          <DndContext
-            collisionDetection={closestCenter}
-            onDragEnd={handleModalDragEnd}
-          >
+          <DndContext collisionDetection={closestCenter} onDragEnd={handleModalDragEnd}>
             <SortableContext items={rowOrder} strategy={verticalListSortingStrategy}>
               {rowOrder.map((id) => {
-                const row = rows.find((r) => r.id === id);
-                return row ? <MemoizedSortableRow key={id} id={id} row={row} /> : null;
+                const row = rows.find((r) => r.Id === id || r.id === id);
+                return row ? <MemoizedSortableRow key={id} id={id} row={row} rowType={rowType} /> : null;
               })}
             </SortableContext>
           </DndContext>
         </DialogContent>
-        {/* Removed DialogActions so no "Done" button appears */}
       </Dialog>
     );
   });
 
-  const SortableRow = ({ id, row }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-    } = useSortable({ id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition: transition || 'none', // Remove default transition
-      display: 'flex',
-      alignItems: 'center',
-      padding: '12px',
-      marginBottom: '8px',
-      border: '1px solid #eee',
-      borderRadius: '4px',
-      backgroundColor: 'white',
-      touchAction: 'none',
-    };
-
-    return (
-      <div ref={setNodeRef} style={style} {...attributes}>
-        <DragIndicatorIcon
-          sx={{
-            mr: 2,
-            cursor: 'move',
-            color: 'action.active',
-          }}
-          {...listeners}
-        />
-        <Typography variant="body1">
-          {row.dealName} • {row.useType} • {row.acreage} acres
-        </Typography>
-      </div>
-    );
-  };
-
-  const MemoizedSortableRow = React.memo(SortableRow);
-
-  console.log('Saved report data type:', {
-    title: typeof savedReport?.title,
-    column_settings: typeof savedReport?.column_settings,
-    row_order: typeof savedReport?.row_order,
-    report_data: typeof savedReport?.report_data
-  });
-
-  // First, define all state that doesn't depend on other variables
   const [reportTitle, setReportTitle] = useState(() => {
     if (savedReport?.title) return savedReport.title;
     try {
-      const savedTitle = localStorage.getItem("compReportTitle");
+      const savedTitle = localStorage.getItem("listingReportTitle");
       return savedTitle || "Listing Report Builder";
     } catch (e) {
       console.error("Failed to load report title:", e);
       return "Listing Report Builder";
     }
   });
-
-  // Define column configurations for both data types
-
 
   // Initialize rowOrder from localStorage or from cartItems
   const [rowOrder, setRowOrder] = useState(() => {
@@ -852,169 +747,16 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     }
   });
 
-  useEffect(() => {
-    if (savedReport?.geo_data) {
-      try {
-        const parsedGeoData = typeof savedReport.geo_data === 'string'
-          ? JSON.parse(savedReport.geo_data)
-          : savedReport.geo_data;
-
-        if (parsedGeoData && typeof parsedGeoData === 'object') {
-          setReportGeoData(parsedGeoData);
-          console.log("Loading Saved Geo Data: ", parsedGeoData);
-        }
-      } catch (e) {
-        console.error("🛑 Failed to parse saved report geo_data:", e);
-      }
-    }
-  }, [savedReport?.geo_data]);
-
-  // Update rowOrder when cartItems change (additions/removals)
-  useEffect(() => {
-    const currentIds = new Set(rowOrder);
-    const newIds = new Set(cartItems.map(item => item.id || item.properties?.id));
-
-    // If items were added, append them to the end
-    const addedItems = cartItems.filter(item =>
-      !currentIds.has(item.id || item.properties?.id)
-    );
-
-    // If items were removed, filter them out
-    const filteredOrder = rowOrder.filter(id => newIds.has(id));
-
-    // If there are changes, update the order
-    if (addedItems.length > 0 || filteredOrder.length !== rowOrder.length) {
-      setRowOrder([
-        ...filteredOrder,
-        ...addedItems.map(item => item.id || item.properties?.id)
-      ]);
-    }
-  }, [cartItems]); // Only run when cartItems changes
-
-  // Save rowOrder to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem("compReportRowOrder", JSON.stringify(rowOrder));
-    } catch (e) {
-      console.error("Failed to save row order:", e);
-    }
-  }, [rowOrder]);
-
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-
 
   const getFormatOption = (field) => {
     const setting = columnSettings[field]; // Direct object access
     return setting?.formatOption || (field === "closeDate" ? "Date" : undefined);
   };
 
-const formattedRows = React.useMemo(() => {
-  if (savedReport?.report_data) {
-    // Check if it's already an array
-    if (Array.isArray(savedReport.report_data)) {
-      return savedReport.report_data;
-    }
-    // Otherwise try to parse it
-    try {
-      return JSON.parse(savedReport.report_data);
-    } catch (e) {
-      console.error("Failed to parse saved report data:", e);
-      // Fall through to cartItems processing
-    }
-  }
-
-  return cartItems.map((item, index) => {
-    // Get the current format option for compPrice
-    const compPriceFormat = columnSettings["compPrice"]?.formatOption || "Total";
-
-    // Ensure that for DMRE deals, outsideCloseDate is used if closeDate is missing
-    const closeDate = item.properties?.closeDate
-      ? item.properties.closeDate
-      : (item.properties?.isDMRE ? item.properties?.outsideCloseDate : null);
-
-    // Extract values safely
-    const purchasePrice = Number(item.properties?.purchasePrice) || 0;
-    const calculatedPrice = Number(item.properties?.calculatedPrice) || 0;
-    const acreage = item.properties?.acreage !== undefined ? Number(item.properties.acreage) : 0;
-    const lotCount = item.properties?.lotCount !== undefined ? Number(item.properties.lotCount) : 0;
-    const dealId = item.properties?.dealId;
-
-    // Determine which price to use
-    const price = calculatedPrice || purchasePrice;
-
-    // Compute Comp Price based on formatOption
-    let compPrice = 0;
-    switch (compPriceFormat) {
-      case "PSF":
-        compPrice = acreage > 0 ? price / (acreage * 43560) : 0;
-        break;
-      case "Per Acre":
-        compPrice = acreage > 0 ? price / acreage : 0;
-        break;
-      case "Per Unit":
-      case "Per Paper Lot":
-      case "Per Finished Lot":
-        compPrice = lotCount > 0 ? price / lotCount : 0;
-        break;
-      case "Total":
-      default:
-        compPrice = price;
-    }
-
-    return {
-      isDMRE: item.properties?.isDMRE ?? false,
-      id: item.id || index,
-      dealId: dealId,
-      dealName: item.properties?.dealName ?? "",
-      acreage: acreage,
-      useType: (item.properties?.primaryUseType ?? "").replace(/-/g, ' '),
-      focusedUse: (item.properties?.focusedUseType ?? "").replace(/-/g, ' '),
-      compType: item.properties?.compType ?? "",
-      dealStage: item.properties?.dealStage ?? "",
-      closeDate: closeDate,
-      buyer: item.properties?.buyer ?? "",
-      city: item.properties?.city ?? "",
-      purchasePrice: purchasePrice,
-      priceDisplay: item.properties?.priceDisplay ?? "",
-      calculatedPrice: calculatedPrice,
-      lotCount: lotCount,
-      frontFoot: item.properties?.frontFoot ?? "",
-      pricingVerified: item.properties?.pricingVerified ?? false,
-      latitude: item.properties?.latitude ?? "",
-      longitude: item.properties?.longitude ?? "",
-      compPrice: compPrice,
-    };
-  });
-}, [cartItems, columnSettings, savedReport?.report_data]);
-
-  // Now you can safely define state that uses formattedRows
-  //const [rows, setRows] = useState(() => {
-  //  if (savedReport?.report_data) {
-  //    return Array.isArray(savedReport.report_data)
-  //      ? savedReport.report_data
-  //      : JSON.parse(savedReport.report_data);
-  //  }
-  //  return formattedRows;
-  //});
-
   const rows = props.rows;
   const setRows = props.setRows;
-
-  useEffect(() => {
-    if (!savedReport && formattedRows?.length > 0) {
-      setRows(formattedRows);
-    }
-  }, [formattedRows, savedReport]);
-
-  // Keep this effect to handle updates to formattedRows
-  useEffect(() => {
-    // Only update if we don't have a saved report or if formattedRows changes
-    if (!savedReport?.report_data) {
-      setRows(formattedRows);
-    }
-  }, [formattedRows, savedReport?.report_data]);
 
   // Initialize rowOrder when rows change
   useEffect(() => {
@@ -1022,31 +764,6 @@ const formattedRows = React.useMemo(() => {
       setRowOrder(rows.map(row => row.id));
     }
   }, [rows]);
-
-  const handleRemoveRow = React.useCallback((id) => {
-    console.log("🧹 Attempting to remove row with ID:", id);
-    console.log("Current cartItems before removal:", cartItems);
-    console.log("Current rows before removal:", rows);
-
-    // Update cartItems state
-    setCartItems(prevItems =>
-      prevItems.filter(item => {
-        const itemId = item.id || item.properties?.id;
-        return itemId !== id;
-      })
-    );
-
-    // Call parent handler if provided
-    if (onRemoveItem) {
-      onRemoveItem(id);
-    }
-
-    // Update all relevant states
-    setRowOrder(prev => prev.filter(rowId => rowId !== id));
-    setRows(prevRows => prevRows.filter(row => row.id !== id && row.dealId !== id));
-
-    console.log("Removal completed for ID:", id);
-  }, [onRemoveItem, setCartItems]);
 
   const resetColumnSettings = () => {
     const defaultSettings = [
@@ -1065,14 +782,14 @@ const formattedRows = React.useMemo(() => {
     ];
 
     setColumnSettings(defaultSettings);
-    localStorage.removeItem("compReportColumnSettings");
+    localStorage.removeItem("listingReportColumnSettings");
   };
 
   // 2. Add a migration effect to handle new columns
   useEffect(() => {
     const migrateColumnSettings = () => {
       try {
-        const savedSettings = localStorage.getItem("compReportColumnSettings");
+        const savedSettings = localStorage.getItem("listingReportColumnSettings");
 
         if (!savedSettings) {
           const defaultSettings = [
@@ -1112,7 +829,7 @@ const formattedRows = React.useMemo(() => {
             formatOption: setting.formatOption
           }));
           setColumnSettings(migratedSettings);
-          localStorage.setItem("compReportColumnSettings", JSON.stringify(migratedSettings));
+          localStorage.setItem("listingReportColumnSettings", JSON.stringify(migratedSettings));
         }
       } catch (e) {
         console.error("Migration failed:", e);
@@ -1133,7 +850,7 @@ const formattedRows = React.useMemo(() => {
   // Save the title whenever it changes
   useEffect(() => {
     try {
-      localStorage.setItem("compReportTitle", reportTitle);
+      localStorage.setItem("listingReportTitle", reportTitle);
     } catch (e) {
       console.error("Failed to save report title:", e);
     }
@@ -1141,19 +858,17 @@ const formattedRows = React.useMemo(() => {
 
   // Save the title whenever it changes
   useEffect(() => {
-    localStorage.setItem("compReportTitle", reportTitle);
+    localStorage.setItem("listingReportTitle", reportTitle);
   }, [reportTitle]);
 
   // Save column settings whenever they change
   useEffect(() => {
     try {
-      localStorage.setItem("compReportColumnSettings", JSON.stringify(columnSettings));
+      localStorage.setItem("listingReportColumnSettings", JSON.stringify(columnSettings));
     } catch (e) {
       console.error("Failed to save column settings:", e);
     }
   }, [columnSettings]);
-
-
 
   // Create DataGrid columns based on current configuration
   const getColumnsToShow = (columns = [], settings = {}) => {
@@ -1243,12 +958,9 @@ const formattedRows = React.useMemo(() => {
       try {
         console.log("Initializing from saved report...");
 
-        // 1. Handle title
         if (savedReport.title) {
           setReportTitle(savedReport.title);
         }
-
-        // 2. Handle column settings
         if (savedReport.column_settings) {
           setColumnSettings(
             Array.isArray(savedReport.column_settings)
@@ -1256,16 +968,12 @@ const formattedRows = React.useMemo(() => {
               : JSON.parse(savedReport.column_settings)
           );
         }
-
-        // 3. Handle row order
         if (savedReport.row_order) {
           const loadedRowOrder = Array.isArray(savedReport.row_order)
             ? savedReport.row_order
             : JSON.parse(savedReport.row_order);
           setRowOrder(loadedRowOrder);
         }
-
-        // 4. Handle report data and cart items
         if (savedReport.report_data) {
           const reportData = Array.isArray(savedReport.report_data)
             ? savedReport.report_data
@@ -1273,13 +981,11 @@ const formattedRows = React.useMemo(() => {
 
           setRows(reportData);
           const updatedCartItems = reportData.map(item => ({
-            id: item.id || item.dealId, // Only use existing IDs
+            id: item.id || item.Id,
             properties: item
           }));
           setCartItems(updatedCartItems);
         }
-
-        // Mark initial load as complete
         setInitialLoadComplete(true);
       } catch (e) {
         console.error("Error loading saved report:", e);
@@ -1296,8 +1002,6 @@ const formattedRows = React.useMemo(() => {
         position: 'relative',
       }}
     >
-      {/* Header Section - Title & Icons on the Same Row (Responsive) */}
-      {/* Header Section - Optimized for Mobile & Desktop */}
       <Box
         sx={{
           display: "flex",
@@ -1457,7 +1161,9 @@ const formattedRows = React.useMemo(() => {
             {console.log('offersColumnsToShow:', offersColumnsToShow)}
             {console.log('offers data sample:', offers.slice(0, 1))} {/* Also log a sample row */}
             <DataGrid
-              rows={stableOfferRows}
+              rows={offerRowOrder
+                .map(id => stableOfferRows.find(row => row.Id === id || row.id === id))
+                .filter(Boolean)}
               columns={offersColumnsToShow}
               getRowId={(row) => row.Id || row.id}  // Use Salesforce's Id field
               pageSize={10}
@@ -1476,7 +1182,9 @@ const formattedRows = React.useMemo(() => {
               columnCount: feedbackColumnsToShow.length
             })}
             <DataGrid
-              rows={stableFeedbackRows}
+              rows={feedbackRowOrder
+                .map(id => stableFeedbackRows.find(row => row.Id === id || row.id === id))
+                .filter(Boolean)}
               columns={feedbackColumnsToShow}
               getRowId={(row) => row.Id}  // Use Salesforce's Id field
               pageSize={10}
@@ -1649,37 +1357,52 @@ const formattedRows = React.useMemo(() => {
             variant="contained"
             onClick={async () => {
               try {
+                const isOffersTab = activeTab === 0;
+                const endpointBase = isOffersTab
+                  ? 'https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/offers'
+                  : 'https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/feedback';
+
                 const response = await fetch(
-                  `https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/offers/${editingCommentRowId}`,
+                  `${endpointBase}/${editingCommentRowId}`,
                   {
                     method: 'PATCH',
                     headers: {
                       'Content-Type': 'application/json',
-                      // You can add Authorization headers here if needed
                     },
                     body: JSON.stringify({
                       recordId: editingCommentRowId,
-                      comment: editingCommentValue
-                    })
+                      comment: editingCommentValue,
+                    }),
                   }
                 );
 
+                const result = await response.json();
+
                 if (!response.ok) {
-                  let result;
-                  try {
-                    result = await response.json();
-                  } catch {
-                    result = { error: 'Unknown error' };
-                  }
                   console.error('Failed to update comment:', result);
-                  alert(`Error: ${result.error}`);
+                  alert(`Error: ${result.error || 'Unknown error'}`);
                   return;
                 }
 
-                const result = await response.json();
-                console.log('Comment updated:', result);
-
-                // TODO: You could also refresh the grid here if needed
+                if (isOffersTab) {
+                  // ✅ Update offers state
+                  setOffers((prev) =>
+                    prev.map((offer) =>
+                      offer.Id === editingCommentRowId
+                        ? { ...offer, Offer_Report_Comments__c: editingCommentValue }
+                        : offer
+                    )
+                  );
+                } else {
+                  // ✅ Update feedback state
+                  setFeedback((prev) =>
+                    prev.map((fb) =>
+                      fb.Id === editingCommentRowId
+                        ? { ...fb, Feedback_Report_Comments__c: editingCommentValue }
+                        : fb
+                    )
+                  );
+                }
 
                 setCommentModalOpen(false);
               } catch (err) {
@@ -1711,21 +1434,13 @@ const formattedRows = React.useMemo(() => {
         activeTab === 0 ? offerColumns : feedbackColumns)}
 
       <RowOrderModal
-        open={isRowModalOpen}
+        open={isRowModalOpen} // shared modal toggle
         onClose={() => setIsRowModalOpen(false)}
-        rows={rows}
-        rowOrder={rowOrder}
-        setRowOrder={setRowOrder}
+        rows={activeTab === 0 ? stableOfferRows : stableFeedbackRows}
+        rowOrder={activeTab === 0 ? offerRowOrder : feedbackRowOrder}
+        setRowOrder={activeTab === 0 ? setOfferRowOrder : setFeedbackRowOrder}
+        rowType={activeTab === 0 ? "offers" : "feedback"}
       />
-
-      {currentRow && (
-        <EditRowModal
-          open={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          row={currentRow}
-          onSave={handleSaveChanges}
-        />
-      )}
     </Box>
   );
 };
