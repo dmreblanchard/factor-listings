@@ -204,8 +204,8 @@ const ColumnSettingsModal = ({ open, onClose, allColumns, currentSettings, onSav
           return {
             ...col,
             ...settings,
-            hidden: settings.hidden || false,
-            label: col.headerName || col.label || col.field
+            hidden: settings.hidden ?? false,
+            label: settings.label || col.headerName || col.label || col.field // <- Fix here
           };
         });
 

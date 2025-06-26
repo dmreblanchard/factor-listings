@@ -871,37 +871,32 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   }, [columnSettings]);
 
   // Create DataGrid columns based on current configuration
-  const getColumnsToShow = (columns = [], settings = {}) => {
-      if (!Array.isArray(columns)) return [];
+  const getColumnsToShow = (baseColumns = [], settings = {}) => {
+    if (!Array.isArray(baseColumns)) return [];
 
-      return columns
-        .filter(col => col && (col.isSpecial || !settings[col.field]?.hidden))
-        .map(col => {
-          if (!col || !col.field) return null;
+    return baseColumns
+      .map((col) => {
+        const config = settings[col.field] || {};
+        if (config.hidden) return null;
 
-          // Changed from settings.find() to direct object access
-          const config = settings[col.field];
-          if (config?.hidden) return null;
-
-          // Return column with formatting if specified
-          return {
-            ...col,
-            ...(config?.formatOption
-              ? {
-                  valueFormatter: (params) => {
-                    const val = params?.value ?? params?.row?.[col.field];
-                    console.log("🎯 Custom formatter override for:", col.field, "Value:", val);
-                    if (col.field.includes('Date')) return formatDate(val, config.formatOption);
-                    if (col.field.includes('Price') || col.field.includes('Amount')) return formatDollar(val);
-                    return val ?? '';
-                  }
+        return {
+          ...col,
+          headerName: config.label || col.headerName || col.field,
+          ...(config.formatOption
+            ? {
+                valueFormatter: (params) => {
+                  const val = params?.value ?? params?.row?.[col.field];
+                  if (col.field.includes('Date')) return formatDate(val, config.formatOption);
+                  if (col.field.includes('Price') || col.field.includes('Amount')) return formatDollar(val);
+                  return val ?? '';
                 }
-              : {
-                  ...(col.valueFormatter && { valueFormatter: col.valueFormatter }) // preserve original
-                })
-          };
-        })
-        .filter(Boolean);
+              }
+            : {
+                ...(col.valueFormatter && { valueFormatter: col.valueFormatter })
+              })
+        };
+      })
+      .filter(Boolean); // Remove nulls
   };
 
   const offersColumnsToShow = getColumnsToShow(offerColumns, columnSettings);
