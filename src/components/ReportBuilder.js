@@ -44,36 +44,12 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Tooltip from '@mui/material/Tooltip';
 
 
-
-// Helper functions for formatting
-function formatCloseDate(value, formatOption) {
-  if (!value) return "";
-
-  const date = new Date(value);
-  if (isNaN(date.getTime())) {
-    console.warn("Invalid date:", value);
-    return "";
-  }
-
-  switch (formatOption) {
-    case "Month/Year":
-      return date.toLocaleString("default", { month: "short", year: "numeric" });
-    case "Quarter/Year":
-      const quarter = Math.floor(date.getMonth() / 3) + 1;
-      return `Q${quarter} ${date.getFullYear()}`;
-    case "Year":
-      return `${date.getFullYear()}`;
-    default:
-      return date.toLocaleDateString();
-  }
-}
-
 function formatDollar(value) {
   if (value === null || value === undefined || value === '') return "";
   const num = Number(value);
   return isNaN(num)
     ? ""
-    : `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    : `$${num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function formatInteger(value) {
@@ -181,115 +157,159 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   };
 
   const offerColumns = [
-    {
-      ...baseColumnProps,
-      field: "Offering_Contact_Name",
-      headerName: "Contact",
-      width: 200,
-    },
-    {
-      ...baseColumnProps,
-      field: "Offering_Company_Name",
-      headerName: "Company",
-      width: 200,
-    },
-    {
-      ...baseColumnProps,
-      field: "Calculated_Purchase_Price__c",
-      headerName: "Purchase Price",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Total_Earnest_Money__c",
-      headerName: "Total Earnest Money",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Feasibility_Period__c",
-      headerName: "Feasibility Period (Days)",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Number_of_feasibility_extensions__c",
-      headerName: "Feasibility Extensions",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Days_in_each_feasibility_extension__c",
-      headerName: "Days in Feasibility Extensions",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Zoning_Approval_Period__c",
-      headerName: "Zoning Approval (Days)",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Number_of_zoning_extensions__c",
-      headerName: "Zoning Extensions",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Days_in_each_zoning_extension__c",
-      headerName: "Days in Zoning Extensions",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Closing_Period__c",
-      headerName: "Closing Period (Days)",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Number_of_closing_extensions__c",
-      headerName: "Closing Extensions",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      ...baseColumnProps,
-      field: "Days_in_each_closing_extension__c",
-      headerName: "Days in Closing Extensions",
-      width: 160,
-      minWidth: 140,
-    },
-    {
-      field: "actions",
-      headerName: "",
-      width: 120,
-      sortable: false,
-      filterable: false,
-      disableColumnMenu: true,
-      isSpecial: true,
-      hideInSettings: true,
-      renderCell: (params) => (
-        <IconButton
-          onClick={() => window.open(
-            `https://dmre.lightning.force.com/lightning/r/Offer__c/${params?.id || ""}/view`,
-            '_blank'
-          )}
-        >
-          <OpenInNewIcon fontSize="small" />
-        </IconButton>
-      )
-    }
+      {
+        ...baseColumnProps,
+        field: "Offering_Contact_Name",
+        headerName: "Contact",
+        width: 200,
+      },
+      {
+        ...baseColumnProps,
+        field: "Offering_Company_Name",
+        headerName: "Company",
+        width: 200,
+      },
+      {
+        ...baseColumnProps,
+        field: "Calculated_Purchase_Price__c",
+        headerName: "Purchase Price",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Calculated_Purchase_Price__c;
+          return formatDollar(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Total_Earnest_Money__c",
+        headerName: "Total Earnest Money",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Total_Earnest_Money__c;
+          return formatDollar(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Feasibility_Period__c",
+        headerName: "Feasibility Period (Days)",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Feasibility_Period__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Number_of_feasibility_extensions__c",
+        headerName: "Feasibility Extensions",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Number_of_feasibility_extensions__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Days_in_each_feasibility_extension__c",
+        headerName: "Days in Feasibility Extensions",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Days_in_each_feasibility_extension__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Zoning_Approval_Period__c",
+        headerName: "Zoning Approval (Days)",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Zoning_Approval_Period__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Number_of_zoning_extensions__c",
+        headerName: "Zoning Extensions",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Number_of_zoning_extensions__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Days_in_each_zoning_extension__c",
+        headerName: "Days in Zoning Extensions",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Days_in_each_zoning_extension__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Closing_Period__c",
+        headerName: "Closing Period (Days)",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Closing_Period__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Number_of_closing_extensions__c",
+        headerName: "Closing Extensions",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Number_of_closing_extensions__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Days_in_each_closing_extension__c",
+        headerName: "Days in Closing Extensions",
+        width: 160,
+        minWidth: 140,
+        renderCell: (params) => {
+          const val = params.row?.Days_in_each_closing_extension__c;
+          return formatInteger(val);
+        }
+      },
+      {
+        field: "actions",
+        headerName: "",
+        width: 120,
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        isSpecial: true,
+        hideInSettings: true,
+        renderCell: (params) => (
+          <IconButton
+            onClick={() => window.open(
+              `https://dmre.lightning.force.com/lightning/r/Offer__c/${params?.id || ""}/view`,
+              '_blank'
+            )}
+          >
+            <OpenInNewIcon fontSize="small" />
+          </IconButton>
+        )
+      }
   ];
 
   const feedbackColumns = [
@@ -343,6 +363,10 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       headerName: "Created Date",
       width: 150,
       minWidth: 130,
+      renderCell: (params) => {
+        const val = params.row?.CreatedDate;
+        return formatDate(val);
+      }
     },
     {
       field: "actions",
@@ -1081,12 +1105,14 @@ const formattedRows = React.useMemo(() => {
     }
   }, [columnSettings]);
 
+
+
   // Create DataGrid columns based on current configuration
   const getColumnsToShow = (columns = [], settings = {}) => {
       if (!Array.isArray(columns)) return [];
 
       return columns
-        .filter(col => col && !col.isSpecial)
+        .filter(col => col && (col.isSpecial || !settings[col.field]?.hidden))
         .map(col => {
           if (!col || !col.field) return null;
 
@@ -1097,18 +1123,19 @@ const formattedRows = React.useMemo(() => {
           // Return column with formatting if specified
           return {
             ...col,
-            ...(config?.formatOption && {
-              valueFormatter: (params) => {
-                if (!params.value) return '';
-                if (col.field.includes('Date')) {
-                  return formatDate(params.value, config.formatOption);
+            ...(config?.formatOption
+              ? {
+                  valueFormatter: (params) => {
+                    const val = params?.value ?? params?.row?.[col.field];
+                    console.log("🎯 Custom formatter override for:", col.field, "Value:", val);
+                    if (col.field.includes('Date')) return formatDate(val, config.formatOption);
+                    if (col.field.includes('Price') || col.field.includes('Amount')) return formatDollar(val);
+                    return val ?? '';
+                  }
                 }
-                if (col.field.includes('Price') || col.field.includes('Amount')) {
-                  return formatDollar(params.value);
-                }
-                return params.value;
-              }
-            })
+              : {
+                  ...(col.valueFormatter && { valueFormatter: col.valueFormatter }) // preserve original
+                })
           };
         })
         .filter(Boolean);
@@ -1117,11 +1144,24 @@ const formattedRows = React.useMemo(() => {
   const offersColumnsToShow = getColumnsToShow(offerColumns, columnSettings);
   const feedbackColumnsToShow = getColumnsToShow(feedbackColumns, columnSettings);
 
+  offersColumnsToShow.map(c => ({
+    field: c.field,
+    isFormatter: typeof c.valueFormatter === 'function'
+  }))
+
+  console.log(
+    "offersColumnsToShow check:",
+    offersColumnsToShow.map((col) => ({
+      field: col.field,
+      hasFormatter: typeof col.valueFormatter === "function",
+    }))
+  );
+
   const flattenedOffers = offers.map((offer) => ({
     ...offer,
-    Lead_Broker_Name: offer?.Lead_Broker__r?.Full_Name__c || 'N/A',
-    Offering_Contact_Name: offer?.Offering_Contact__r?.Full_Name__c || 'N/A',
-    Offering_Company_Name: offer?.Offering_Company__r?.Name || 'N/A',
+    Lead_Broker_Name: offer?.Lead_Broker__r?.Full_Name__c || '',
+    Offering_Contact_Name: offer?.Offering_Contact__r?.Full_Name__c || '',
+    Offering_Company_Name: offer?.Offering_Company__r?.Name || '',
   }));
   console.log("Flattened offer sample row:", flattenedOffers[0]);
 
@@ -1367,10 +1407,10 @@ const formattedRows = React.useMemo(() => {
             <DataGrid
               rows={flattenedOffers}
               columns={offersColumnsToShow}
-              getRowId={(row) => row.Id}  // Use Salesforce's Id field
+              getRowId={(row) => row.Id || row.id}  // Use Salesforce's Id field
               pageSize={10}
               rowsPerPageOptions={[5, 10, 25]}
-              loading={offers.length === 0}
+              loading={flattenedOffers.length === 0}
             />
           </Box>
         </TabPanel>
@@ -1389,6 +1429,7 @@ const formattedRows = React.useMemo(() => {
               getRowId={(row) => row.Id}  // Use Salesforce's Id field
               pageSize={10}
               rowsPerPageOptions={[5, 10, 25]}
+              loading={flattenedFeedback.length === 0}
             />
           </Box>
         </TabPanel>
