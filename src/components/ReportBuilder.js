@@ -1,5 +1,5 @@
 // components/ReportBuilder.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -138,6 +138,19 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   });
   const [activeTab, setActiveTab] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [editingCommentRowId, setEditingCommentRowId] = useState(null);
+  const [editingCommentValue, setEditingCommentValue] = useState('');
+  const saveEditedComment = async (id, newValue) => {
+    console.log(`Saving comment for row ${id}:`, newValue);
+
+    // TODO: Replace with your actual save logic (e.g. call to API / Lambda / Supabase)
+    // Example:
+    // await api.saveComment({ id, comment: newValue });
+
+    // Optionally, update local state or re-fetch offers
+  };
   // State for offers
   const [offers, setOffers] = useState([]);
   const [offersColumns, setOffersColumns] = useState([
@@ -288,6 +301,41 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
         renderCell: (params) => {
           const val = params.row?.Days_in_each_closing_extension__c;
           return formatInteger(val);
+        }
+      },
+      {
+        ...baseColumnProps,
+        field: "Offer_Report_Comments__c",
+        headerName: "Offer Comments",
+        width: 300,
+        renderCell: (params) => {
+          const { id, value } = params;
+
+          return (
+            <Box
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingCommentRowId(id);
+                setEditingCommentValue(value || '');
+                setCommentModalOpen(true);
+              }}
+              sx={{
+                cursor: 'pointer',
+                width: '100%',
+                height: '100%',
+                padding: '0 8px',
+                display: 'flex',
+                alignItems: 'center',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              {value?.trim()
+                ? value
+                : <span style={{ color: '#888' }}>Click to add comment</span>}
+            </Box>
+          );
         }
       },
       {
@@ -1165,12 +1213,16 @@ const formattedRows = React.useMemo(() => {
   }));
   console.log("Flattened offer sample row:", flattenedOffers[0]);
 
+  const stableOfferRows = useMemo(() => flattenedOffers, [flattenedOffers]);
+
   const flattenedFeedback = feedback.map((feedback) => ({
     ...feedback,
     Buyer_Company_Name: feedback?.Buyer_Company__r?.Name || 'N/A',
     Buyer_Contact_Name: feedback?.Buyer_Contact__r?.Full_Name__c || 'N/A',
   }));
   console.log("Flattened feedback sample row:", flattenedFeedback[0]);
+
+  const stableFeedbackRows = useMemo(() => flattenedFeedback, [flattenedFeedback]);
 
   // Handle saving column settings from modal
   const handleSaveColumnSettings = (updatedConfig) => {
@@ -1405,12 +1457,12 @@ const formattedRows = React.useMemo(() => {
             {console.log('offersColumnsToShow:', offersColumnsToShow)}
             {console.log('offers data sample:', offers.slice(0, 1))} {/* Also log a sample row */}
             <DataGrid
-              rows={flattenedOffers}
+              rows={stableOfferRows}
               columns={offersColumnsToShow}
               getRowId={(row) => row.Id || row.id}  // Use Salesforce's Id field
               pageSize={10}
               rowsPerPageOptions={[5, 10, 25]}
-              loading={flattenedOffers.length === 0}
+              loading={stableOfferRows.length === 0}
             />
           </Box>
         </TabPanel>
@@ -1424,12 +1476,12 @@ const formattedRows = React.useMemo(() => {
               columnCount: feedbackColumnsToShow.length
             })}
             <DataGrid
-              rows={flattenedFeedback}
+              rows={stableFeedbackRows}
               columns={feedbackColumnsToShow}
               getRowId={(row) => row.Id}  // Use Salesforce's Id field
               pageSize={10}
               rowsPerPageOptions={[5, 10, 25]}
-              loading={flattenedFeedback.length === 0}
+              loading={stableFeedbackRows.length === 0}
             />
           </Box>
         </TabPanel>
@@ -1557,6 +1609,90 @@ const formattedRows = React.useMemo(() => {
       </Box>
 
       {/* Modals */}
+      <Dialog
+        open={commentModalOpen}
+        onClose={() => setCommentModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        {console.log('Editing Salesforce Record Id:', editingCommentRowId)}
+        <DialogTitle>Edit Offer Comment</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            value={editingCommentValue}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              if (newValue.length <= 255) {
+                setEditingCommentValue(newValue);
+              }
+            }}
+            inputProps={{ maxLength: 255 }}
+            helperText={
+              editingCommentValue.length >= 255
+                ? 'Maximum 255 characters reached'
+                : `${editingCommentValue.length}/255 characters`
+            }
+            FormHelperTextProps={{
+              sx: {
+                color: editingCommentValue.length >= 255 ? 'error.main' : 'text.secondary',
+              },
+            }}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCommentModalOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              try {
+                const response = await fetch(
+                  `https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/offers/${editingCommentRowId}`,
+                  {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      // You can add Authorization headers here if needed
+                    },
+                    body: JSON.stringify({
+                      recordId: editingCommentRowId,
+                      comment: editingCommentValue
+                    })
+                  }
+                );
+
+                if (!response.ok) {
+                  let result;
+                  try {
+                    result = await response.json();
+                  } catch {
+                    result = { error: 'Unknown error' };
+                  }
+                  console.error('Failed to update comment:', result);
+                  alert(`Error: ${result.error}`);
+                  return;
+                }
+
+                const result = await response.json();
+                console.log('Comment updated:', result);
+
+                // TODO: You could also refresh the grid here if needed
+
+                setCommentModalOpen(false);
+              } catch (err) {
+                console.error('Fetch error:', err);
+                alert('Failed to connect to update service.');
+              }
+            }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <ColumnSettingsModal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
