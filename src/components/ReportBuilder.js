@@ -886,8 +886,15 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       .filter(Boolean);
   };
 
-  const offersColumnsToShow = getColumnsToShow(offerColumns, offerColumnSettings);
-  const feedbackColumnsToShow = getColumnsToShow(feedbackColumns, feedbackColumnSettings);
+  const offersColumnsToShow = [
+    ...getColumnsToShow(offerColumns, offerColumnSettings),
+    offerColumns.find(col => col.field === "actions")
+  ];
+
+  const feedbackColumnsToShow = [
+    ...getColumnsToShow(feedbackColumns, feedbackColumnSettings),
+    feedbackColumns.find(col => col.field === "actions")
+  ];
 
   offersColumnsToShow.map(c => ({
     field: c.field,
