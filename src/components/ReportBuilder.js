@@ -460,41 +460,21 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     }
   ];
 
-  const [columnSettings, setColumnSettings] = useState(() => {
-    // Create default settings that show all columns
-    const initialSettings = {};
-
-    // Process offer columns
-    offerColumns.forEach(col => {
-      if (!col.hideInSettings) {
-        initialSettings[col.field] = {
-          hidden: false,
-          ...col
-        };
-      }
-    });
-
-    // Process feedback columns if needed
-    feedbackColumns.forEach(col => {
-      if (!col.hideInSettings && !initialSettings[col.field]) {
-        initialSettings[col.field] = {
-          hidden: false,
-          ...col
-        };
-      }
-    });
-
-    // Then try to load saved settings
+  const [offerColumnSettings, setOfferColumnSettings] = useState(() => {
     try {
-      if (savedReport?.column_settings) {
-        const saved = typeof savedReport.column_settings === 'string'
-          ? JSON.parse(savedReport.column_settings)
-          : savedReport.column_settings;
-        return saved || initialSettings;
-      }
-      return initialSettings;
+      const saved = localStorage.getItem("listingReportOfferColumns");
+      return saved ? JSON.parse(saved) : {};
     } catch (e) {
-      return initialSettings;
+      return {};
+    }
+  });
+
+  const [feedbackColumnSettings, setFeedbackColumnSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem("listingReportFeedbackColumns");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
     }
   });
 
@@ -545,7 +525,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     }
   }, [reportData]);
 
-  // In ReportBuilder.js
+/*  // In ReportBuilder.js
   const handleInternalPreview = async () => {
     setIsGeneratingPDF(true);
 
@@ -637,7 +617,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       setIsGeneratingPDF(false);
     }
   };
-
+*/
   const RowOrderModal = React.memo(({ open, onClose, rows, rowOrder, setRowOrder, rowType }) => {
     const handleModalDragEnd = (event) => {
       const { active, over } = event;
@@ -750,11 +730,12 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+/*
   const getFormatOption = (field) => {
     const setting = columnSettings[field]; // Direct object access
     return setting?.formatOption || (field === "closeDate" ? "Date" : undefined);
   };
-
+*/
   const rows = props.rows;
   const setRows = props.setRows;
 
@@ -765,6 +746,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     }
   }, [rows]);
 
+/*
   const resetColumnSettings = () => {
     const defaultSettings = [
       ...offerColumns.map(col => ({
@@ -784,7 +766,9 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     setColumnSettings(defaultSettings);
     localStorage.removeItem("listingReportColumnSettings");
   };
+*/
 
+/*
   // 2. Add a migration effect to handle new columns
   useEffect(() => {
     const migrateColumnSettings = () => {
@@ -839,6 +823,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
 
     migrateColumnSettings();
   }, []);
+*/
 
   // Helper function for format options
   const getDefaultFormatOption = (field) => {
@@ -861,6 +846,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     localStorage.setItem("listingReportTitle", reportTitle);
   }, [reportTitle]);
 
+/*
   // Save column settings whenever they change
   useEffect(() => {
     try {
@@ -869,6 +855,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       console.error("Failed to save column settings:", e);
     }
   }, [columnSettings]);
+*/
 
   // Create DataGrid columns based on current configuration
   const getColumnsToShow = (baseColumns = [], settings = {}) => {
@@ -899,8 +886,8 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       .filter(Boolean);
   };
 
-  const offersColumnsToShow = getColumnsToShow(offerColumns, columnSettings);
-  const feedbackColumnsToShow = getColumnsToShow(feedbackColumns, columnSettings);
+  const offersColumnsToShow = getColumnsToShow(offerColumns, offerColumnSettings);
+  const feedbackColumnsToShow = getColumnsToShow(feedbackColumns, feedbackColumnSettings);
 
   offersColumnsToShow.map(c => ({
     field: c.field,
@@ -934,11 +921,13 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
 
   const stableFeedbackRows = useMemo(() => flattenedFeedback, [flattenedFeedback]);
 
+/*
   // Handle saving column settings from modal
   const handleSaveColumnSettings = (updatedConfig) => {
     console.log("🧠 Column settings saved from modal:", updatedConfig);
     setColumnSettings(updatedConfig);
   };
+*/
 
   useEffect(() => {
     return () => {
@@ -947,6 +936,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     };
   }, []);
 
+/*
   // Replace your existing savedReport useEffect with this combined version:
   useEffect(() => {
     if (savedReport && !initialLoadComplete) {
@@ -987,6 +977,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       }
     }
   }, [savedReport, setCartItems, initialLoadComplete]);
+*/
 
   return (
     <Box
@@ -1276,7 +1267,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
         <Button
           variant="contained"
           color="primary"
-          onClick={handleInternalPreview}
+          //onClick={handleInternalPreview}
           disabled={isGeneratingPDF}
           startIcon={
             <Box sx={{
@@ -1418,10 +1409,19 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
           ...col,
           label: col.headerName || col.field, // Use headerName if available, fallback to field
         }))}
-        allColumns={activeTab === 0 ? offerColumns : feedbackColumns}
-        currentSettings={columnSettings}
+        allColumns={(activeTab === 0 ? offerColumns : feedbackColumns).map(col => ({
+          ...col,
+          label: col.headerName || col.field,
+        }))}
+        currentSettings={activeTab === 0 ? offerColumnSettings : feedbackColumnSettings}
         onSave={(updatedSettings) => {
-          setColumnSettings(updatedSettings);
+          if (activeTab === 0) {
+            setOfferColumnSettings(updatedSettings);
+            localStorage.setItem("listingReportOfferColumns", JSON.stringify(updatedSettings));
+          } else {
+            setFeedbackColumnSettings(updatedSettings);
+            localStorage.setItem("listingReportFeedbackColumns", JSON.stringify(updatedSettings));
+          }
           setIsModalOpen(false);
         }}
       />
