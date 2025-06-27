@@ -872,31 +872,31 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
 
   // Create DataGrid columns based on current configuration
   const getColumnsToShow = (baseColumns = [], settings = {}) => {
-    if (!Array.isArray(baseColumns)) return [];
+    const orderedFields = settings.__columnOrder || baseColumns.map(col => col.field);
 
-    return baseColumns
-      .map((col) => {
-        const config = settings[col.field] || {};
-        if (config.hidden) return null;
+    return orderedFields
+      .map(field => {
+        const base = baseColumns.find(col => col.field === field);
+        const config = settings[field] || {};
+
+        if (!base || config.hidden) return null;
 
         return {
-          ...col,
-          headerName: config.label || col.headerName || col.field,
+          ...base,
+          headerName: config.label || base.headerName || base.field,
           ...(config.formatOption
             ? {
                 valueFormatter: (params) => {
-                  const val = params?.value ?? params?.row?.[col.field];
-                  if (col.field.includes('Date')) return formatDate(val, config.formatOption);
-                  if (col.field.includes('Price') || col.field.includes('Amount')) return formatDollar(val);
+                  const val = params?.value ?? params?.row?.[field];
+                  if (field.includes('Date')) return formatDate(val, config.formatOption);
+                  if (field.includes('Price') || field.includes('Amount')) return formatDollar(val);
                   return val ?? '';
                 }
               }
-            : {
-                ...(col.valueFormatter && { valueFormatter: col.valueFormatter })
-              })
+            : base.valueFormatter ? { valueFormatter: base.valueFormatter } : {})
         };
       })
-      .filter(Boolean); // Remove nulls
+      .filter(Boolean);
   };
 
   const offersColumnsToShow = getColumnsToShow(offerColumns, columnSettings);

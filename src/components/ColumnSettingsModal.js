@@ -253,22 +253,22 @@ const ColumnSettingsModal = ({ open, onClose, allColumns, currentSettings, onSav
 
   const handleClose = () => {
     if (hasChanges) {
-      // Convert array back to settings object
       const updatedSettings = {};
-      localCols.forEach(col => {
+      const columnOrder = localCols.map(col => col.field);
+
+      localCols.forEach((col) => {
         updatedSettings[col.field] = {
-          hidden: col.hidden,
-          // Preserve other settings
           ...currentSettings[col.field],
-          // Update with new values
-          ...col
+          hidden: col.hidden,
+          label: col.label,
+          formatOption: col.formatOption,
         };
       });
 
-      // Merge with existing settings to preserve hidden columns
       const finalSettings = {
         ...currentSettings,
-        ...updatedSettings
+        ...updatedSettings,
+        __columnOrder: columnOrder
       };
 
       onSave(finalSettings);
