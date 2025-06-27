@@ -191,13 +191,13 @@ const ColumnSettingsModal = ({ open, onClose, allColumns, currentSettings, onSav
   // Initialize with current settings
   useEffect(() => {
     if (open && allColumns) {
-      // Debug log to see what's being received
       console.log('Initializing modal with:', {
         allColumns,
         currentSettings
       });
 
-      const filteredColumns = allColumns
+      // Step 1: Build base columns with any saved customizations
+      const baseCols = allColumns
         .filter(col => col && !col.hideInSettings)
         .map(col => {
           const settings = currentSettings[col.field] || {};
@@ -205,12 +205,20 @@ const ColumnSettingsModal = ({ open, onClose, allColumns, currentSettings, onSav
             ...col,
             ...settings,
             hidden: settings.hidden ?? false,
-            label: settings.label || col.headerName || col.label || col.field // <- Fix here
+            label: settings.label || col.headerName || col.label || col.field
           };
         });
 
-      console.log('Processed columns:', filteredColumns);
-      setLocalCols(filteredColumns);
+      // Step 2: Sort by saved order if it exists
+      const orderedFields = currentSettings.__columnOrder;
+      const sortedCols = orderedFields
+        ? orderedFields
+            .map(field => baseCols.find(col => col.field === field))
+            .filter(Boolean)
+        : baseCols;
+
+      console.log('Processed & sorted columns:', sortedCols);
+      setLocalCols(sortedCols);
       setHasChanges(false);
     } else {
       setLocalCols([]);
