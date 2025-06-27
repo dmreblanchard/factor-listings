@@ -40,6 +40,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import CheckIcon from '@mui/icons-material/Check';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Tooltip from '@mui/material/Tooltip';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 function formatDollar(value) {
   if (value === null || value === undefined || value === '') return "";
@@ -141,7 +143,8 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
 
   const [offerRowOrder, setOfferRowOrder] = useState([]);
   const [feedbackRowOrder, setFeedbackRowOrder] = useState([]);
-
+  const [excludeOffers, setExcludeOffers] = useState(false);
+  const [excludeFeedback, setExcludeFeedback] = useState(false);
   const baseColumnProps = {
     minWidth: 120,       // Default minimum width
     sortable: true,      // Default to sortable
@@ -530,33 +533,40 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     setIsGeneratingPDF(true);
 
     try {
-      const offerData = {
-        title: "Offers",
-        rows: stableOfferRows.map((row, index) => ({
-          ...row,
-          rowNumber: index + 1,
-          Effective_Date__c: (
-            offerColumnSettings["Effective_Date__c"]?.maskUnderContract &&
-            row.Offer_Status__c === "Under Contract"
-          ) ? "-" : row.Effective_Date__c,
-          Calculated_Purchase_Price__c: formatDollar(row.Calculated_Purchase_Price__c),
-          Total_Earnest_Money__c: formatDollar(row.Total_Earnest_Money__c),
-        })),
-        columns: offersColumnsToShow.filter(col => col.field !== "actions")
-      };
+      const sections = [];
 
-      const feedbackData = {
-        title: "Feedback",
-        rows: stableFeedbackRows.map((row, index) => ({
-          ...row,
-          rowNumber: index + 1
-        })),
-        columns: feedbackColumnsToShow.filter(col => col.field !== "actions")
-      };
+      if (!excludeOffers && stableOfferRows.length > 0) {
+        sections.push({
+          title: "Offers",
+          rows: stableOfferRows.map((row, index) => ({
+            ...row,
+            rowNumber: index + 1,
+            Effective_Date__c:
+              offerColumnSettings["Effective_Date__c"]?.maskUnderContract &&
+              row.Offer_Status__c === "Under Contract"
+                ? "-"
+                : row.Effective_Date__c,
+                Calculated_Purchase_Price__c: formatDollar(row.Calculated_Purchase_Price__c),
+                Total_Earnest_Money__c: formatDollar(row.Total_Earnest_Money__c),
+          })),
+          columns: offersColumnsToShow.filter(col => col.field !== "actions")
+        });
+      }
+
+      if (!excludeFeedback && stableFeedbackRows.length > 0) {
+        sections.push({
+          title: "Feedback",
+          rows: stableFeedbackRows.map((row, index) => ({
+            ...row,
+            rowNumber: index + 1
+          })),
+          columns: feedbackColumnsToShow.filter(col => col.field !== "actions")
+        });
+      }
 
       // Generate PDFs
       const { tabularPDF, mapPDF } = await generatePDFReport(
-        [offerData, feedbackData], // 🆕 array of table sections
+        sections,
         reportTitle,
         { orientation: 'landscape' },
         activeTab === 0 ? reportGeoData : {} // optional
@@ -570,7 +580,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       const updatePreview = (comment = "") => {
         if (onPreviewPDF) {
           onPreviewPDF(pdfUrl, {
-            reportTitle: `${reportTitle} - ${activeTab === 0 ? 'Offers' : 'Feedback'}`,
+            reportTitle: reportTitle,
             user_email: userData?.user_email,
             selectedRows: orderedRows,
             comment: comment,
@@ -1120,6 +1130,18 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={excludeOffers}
+                  onChange={(e) => setExcludeOffers(e.target.checked)}
+                  disabled={stableOfferRows.length === 0}
+                />
+              }
+              label="Exclude Offers from Report"
+            />
+          </Box>
           <Box sx={{ height: 400, width: '100%' }}>
             {console.log('Rendering offers with:', {
               rows: offers,
@@ -1143,6 +1165,19 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
+          {/* FEEDBACK */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={excludeFeedback}
+                  onChange={(e) => setExcludeFeedback(e.target.checked)}
+                  disabled={stableFeedbackRows.length === 0}
+                />
+              }
+              label="Exclude Feedback from Report"
+            />
+          </Box>
           <Box sx={{ height: 400, width: '100%' }}>
             {console.log('Rendering feedback with:', {
               rows: feedback,

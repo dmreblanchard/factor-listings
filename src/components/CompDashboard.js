@@ -87,7 +87,7 @@ const CompDashboard = ({ userData, onClose, onEditReport, navigationState }) => 
     setLoading(true);
     try {
       const response = await fetch(
-        `https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/dashboard?user_email=${encodeURIComponent(userData.user_email)}`,
+        `https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/listings/dashboard?user_email=${encodeURIComponent(userData.user_email)}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" }
@@ -99,7 +99,7 @@ const CompDashboard = ({ userData, onClose, onEditReport, navigationState }) => 
       if (!data.success) {
         throw new Error(data.error || "Failed to fetch reports");
       }
-      console.log("Comp Report Data: ", data);
+      console.log("Listings Report Data: ", data);
       // Transform to match your component's expected structure
       setReports({
         userReports: data.reports.filter(r => r.user_id === userData.user_email),
@@ -132,7 +132,7 @@ const CompDashboard = ({ userData, onClose, onEditReport, navigationState }) => 
     if (!reportToDelete?.report_id && !reportToDelete?.id) return;
 
     try {
-      const response = await fetch('https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/delete', {
+      const response = await fetch('https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/listings/reports/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ report_id: reportToDelete.report_id || reportToDelete.id }),
@@ -299,7 +299,7 @@ const CompDashboard = ({ userData, onClose, onEditReport, navigationState }) => 
             fontWeight: 600,
             letterSpacing: 0.5
           }}>
-            <BackupTableOutlinedIcon /> Comp Reports Dashboard
+            <BackupTableOutlinedIcon /> Listings Reports Dashboard
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Tooltip title="Refresh">

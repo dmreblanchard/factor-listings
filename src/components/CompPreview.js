@@ -246,7 +246,7 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
       console.log("Publish Payload: ", payload);
       // 6. Proceed with upload
       const response = await fetch(
-        "https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/create",
+        "https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/listings/reports/create",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -360,7 +360,7 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
       console.log("Draft payload:", JSON.stringify(payload, null, 2));
 
       const response = await fetch(
-        "https://3h3er97cni.execute-api.us-east-1.amazonaws.com/prod/comps/create",
+        "https://tc3fvnrjqa.execute-api.us-east-1.amazonaws.com/prod/listings/reports/create",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -647,10 +647,10 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
                 </Typography>
 
                 <Typography variant="subtitle2" color="text.secondary">
-                  Properties Included:
+                  Records Included:
                 </Typography>
                 <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                  {selectedRows.length} {selectedRows.length === 1 ? 'Property' : 'Properties'}
+                  {selectedRows.length} {selectedRows.length === 1 ? 'Record' : 'Records'}
                 </Typography>
               </Box>
 
