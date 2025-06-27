@@ -47,11 +47,11 @@ const createHeader = (doc, reportTitle, rows, headerImg, pageWidth, styles, marg
 
   doc.setFont(styles.subtitleFont, styles.subtitleFontWeight);
   doc.setFontSize(styles.subtitleSize);
-  doc.text(`Generated: ${new Date().toLocaleString()} | ${rows.length} Properties`,
+  doc.text(`Generated: ${new Date().toLocaleString()} | ${rows.length} Records`,
            margins.left, titleY + styles.subtitleSize + 4);
 };
 
-export const generatePDFReport = async (rows, columns, reportTitle, options = {}, geoData = {}) => {
+export const generatePDFReport = async (tableSections = [], reportTitle, options = {}, geoData = {}) => {
   // Create tabular report
   const tabularDoc = new jsPDF({
     orientation: options.orientation || 'landscape',
@@ -101,152 +101,99 @@ export const generatePDFReport = async (rows, columns, reportTitle, options = {}
     loadImage(`${window.location.origin}/Logomark_blue.png`).catch(() => null)
   ]);
 
-  // Add header to tabular report
-  createHeader(tabularDoc, reportTitle, rows, headerImg, pageWidth, styles, margins);
-
-  // Configure table columns
-  const visibleColumns = [{ headerName: '', field: 'rowNumber' }, ...columns.filter(col => col.field !== 'actions')];
-  const headers = visibleColumns.map(col => col.headerName);
-
-  // Calculate column widths
-  const usableTableWidth = pageWidth - margins.left - margins.right;
-
-  // Calculate maximum row number width
-  const maxRowNumber = rows.length;
-  const rowNumberWidth = Math.max(
-    tabularDoc.getStringUnitWidth(maxRowNumber.toString()) * styles.tableFontSize * 0.6,
-    20
-  ) + 10;
-
-  const dmreColumnIndex = visibleColumns.findIndex(col => col.field === 'isDMRE');
-  const dmreColumnWidth = dmreColumnIndex >= 0 ? 40 : 0;
-
-  // Calculate remaining width for other columns
-  const remainingWidth = usableTableWidth - rowNumberWidth - dmreColumnWidth;
-  const regularColumnsCount = visibleColumns.length -
-                            (dmreColumnIndex >= 0 ? 1 : 0) -
-                            1;
-
-  const defaultColumnWidth = Math.floor(remainingWidth / regularColumnsCount);
-
-  // Apply column styles
-  const columnStyles = {};
-  visibleColumns.forEach((col, idx) => {
-    if (col.field === 'rowNumber') {
-      columnStyles[idx] = {
-        cellWidth: rowNumberWidth,
-        minCellWidth: 20,
-        halign: 'center'
-      };
-    } else if (col.field === 'isDMRE') {
-      columnStyles[idx] = {
-        cellWidth: dmreColumnWidth,
-        minCellWidth: 40
-      };
-    } else {
-      columnStyles[idx] = {
-        cellWidth: defaultColumnWidth,
-        minCellWidth: 40
-      };
-    }
-  });
-
   // Generate table body
-  const body = rows.map((row, index) => visibleColumns.map(col => {
-    if (col.field === 'rowNumber') return index + 1;
-    if (col.field === 'isDMRE' && row[col.field] === true) return { content: '', isDMRE: true };
-    // Special handling for masked close dates
-    if (col.field === 'closeDate' && row[col.field] === '-') {
-      return {
-        content: '-',
-        styles: {
-          fontStyle: 'bold',
-          textColor: [150, 150, 150] // Gray color for masked values
+  let currentY = 80;
+
+  for (const section of tableSections) {
+    const { title, rows, columns } = section;
+
+    // Add section header to the page
+    createHeader(tabularDoc, `${reportTitle} - ${title}`, rows, headerImg, pageWidth, styles, margins);
+
+    // Section header
+    tabularDoc.setFont(styles.titleFont, "bold");
+    tabularDoc.setFontSize(styles.titleSize);
+    tabularDoc.setTextColor(22, 54, 92);
+    tabularDoc.text(title, margins.left, currentY);
+    currentY += styles.titleSize + 6;
+
+    // Table headers
+    const visibleColumns = [{ headerName: '', field: 'rowNumber' }, ...section.columns];
+    const headers = visibleColumns.map(col => col.headerName);
+
+    // Column widths (same as before)
+    const usableTableWidth = pageWidth - margins.left - margins.right;
+    const maxRowNumber = rows.length;
+    const rowNumberWidth = Math.max(
+      tabularDoc.getStringUnitWidth(maxRowNumber.toString()) * styles.tableFontSize * 0.6,
+      20
+    ) + 10;
+
+    const remainingWidth = usableTableWidth - rowNumberWidth;
+    const defaultColumnWidth = Math.floor(remainingWidth / (visibleColumns.length - 1));
+
+    const columnStyles = {};
+    visibleColumns.forEach((col, idx) => {
+      columnStyles[idx] = col.field === "rowNumber"
+        ? { cellWidth: rowNumberWidth, halign: 'center' }
+        : { cellWidth: defaultColumnWidth };
+    });
+
+    const body = section.rows.map((row, index) =>
+      visibleColumns.map(col => {
+        if (col.field === "rowNumber") return index + 1;
+        if (col.field === 'closeDate' && row[col.field] === '-') {
+          return {
+            content: '-',
+            styles: {
+              fontStyle: 'bold',
+              textColor: [150, 150, 150]
+            }
+          };
         }
-      };
-    }
-    if (col.valueFormatter) {
-      // For closeDate, skip formatting if it's already masked
-      if (col.field === 'closeDate' && row[col.field] === '-') {
-        return '-';
-      }
-      return col.valueFormatter({ value: row[col.field] });
-    }
-    return row[col.field] || '';
-  }));
+        if (col.valueFormatter) {
+          return col.valueFormatter({ value: row[col.field] });
+        }
+        return row[col.field] ?? '';
+      })
+    );
 
-  // Add table to tabular report
-  autoTable(tabularDoc, {
-    startY: 80,
-    margin: margins,
-    head: [headers],
-    body,
-    columnStyles,
-    styles: {
-      font: styles.tableFont,
-      fontStyle: styles.tableFontWeight,
-      fontSize: styles.tableFontSize,
-      cellPadding: 4,
-      lineColor: [200, 200, 200],
-      lineWidth: 0.5,
-      textColor: [50, 50, 50],
-      overflow: 'linebreak'
-    },
-    headStyles: {
-      font: styles.tableFont,
-      fontStyle: styles.headerFontWeight,
-      fontSize: styles.tableFontSize + 1,
-      fillColor: styles.headerColor,
-      textColor: 255,
-      halign: 'center'
-    },
-    alternateRowStyles: {
-      fillColor: styles.alternateRowColor
-    },
-    didDrawCell: (data) => {
-      if (dmreColumnIndex >= 0 && data.column.index === dmreColumnIndex && data.cell.raw?.isDMRE && logoImg) {
-        const targetWidth = 16;
-        const targetHeight = targetWidth * (1.52 / 1.3);
-        const xPos = data.cell.x + (data.cell.width - targetWidth) / 2;
-        const yPos = data.cell.y + (data.cell.height - targetHeight) / 2;
-        tabularDoc.addImage(logoImg, 'PNG', xPos, yPos, targetWidth, targetHeight);
-      }
-    },
-    didDrawPage: (data) => {
-      createHeader(tabularDoc, reportTitle, rows, headerImg, pageWidth, styles, margins);
+    autoTable(tabularDoc, {
+      startY: currentY,
+      head: [headers],
+      body,
+      margin: margins,
+      columnStyles,
+      styles: {
+        font: styles.tableFont,
+        fontStyle: styles.tableFontWeight,
+        fontSize: styles.tableFontSize,
+        cellPadding: 4,
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fontStyle: styles.headerFontWeight,
+        fillColor: styles.headerColor,
+        textColor: 255,
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: styles.alternateRowColor
+      },
+      didDrawPage: (data) => {
+        createHeader(tabularDoc, reportTitle, rows, headerImg, pageWidth, styles, margins);
 
-      // Original footer positioning logic
-      const footerY = pageHeight - margins.bottom + 5;
-      const footerWidth = pageWidth * 0.8;
-      const footerText = "CONFIDENTIAL: This information has been derived from sources deemed reliable. However, it is subject to errors, omissions, price change and/or withdrawal, and no warranty is made as to the accuracy. Further, no warranties or representations shall be made by DMRE and/or its agents, representatives or affiliates regarding oral statements which have been made in the discussion of the above properties.";
-
-      const wrappedFooterText = tabularDoc.splitTextToSize(footerText, footerWidth);
-
-      tabularDoc.setFont(styles.tableFont, "normal");
-      tabularDoc.setFontSize(styles.tableFontSize);
-      tabularDoc.setTextColor(100, 100, 100);
-      tabularDoc.text(wrappedFooterText, margins.left, footerY);
-
-      // Original watermark placement (only on first page)
-      if (data.pageNumber === 1) {
+        // Page numbers
+        const pageNumber = tabularDoc.internal.getNumberOfPages();
         tabularDoc.setFont(styles.tableFont, 'normal');
-        tabularDoc.setFontSize(styles.watermark.fontSize);
-        tabularDoc.setTextColor(200, 200, 200);
-        tabularDoc.setGState(tabularDoc.GState({ opacity: styles.watermark.opacity }));
-        tabularDoc.text(
-          styles.watermark.text,
-          pageWidth / 2,
-          pageHeight / 2,
-          {
-            angle: styles.watermark.angle,
-            align: 'center',
-            lineHeightFactor: 1.5
-          }
-        );
-        tabularDoc.setGState(tabularDoc.GState({ opacity: 1 }));
+        tabularDoc.setFontSize(styles.tableFontSize);
+        tabularDoc.setTextColor(100, 100, 100);
+        tabularDoc.text(`Page ${pageNumber}`, pageWidth - margins.right - 60, pageHeight - margins.bottom + 10);
       }
-    }
-  });
+    });
+
+    currentY = tabularDoc.lastAutoTable.finalY + 40; // Space before next section
+  }
 
   // Add final page numbers to tabular report
   const totalPages = tabularDoc.internal.getNumberOfPages();
@@ -268,9 +215,6 @@ export const generatePDFReport = async (rows, columns, reportTitle, options = {}
     });
 
     registerFonts(mapDoc);
-
-    // Add header to map document
-    createHeader(mapDoc, `${reportTitle} - Map`, rows, headerImg, pageWidth, styles, margins);
 
     // Calculate map dimensions
     const { width: mapWidth, height: mapHeight } = calculateMapDimensions(pageWidth, pageHeight, margins);

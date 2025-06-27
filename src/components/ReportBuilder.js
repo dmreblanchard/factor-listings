@@ -525,72 +525,48 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
     }
   }, [reportData]);
 
-/*  // In ReportBuilder.js
+  // In ReportBuilder.js
   const handleInternalPreview = async () => {
     setIsGeneratingPDF(true);
 
     try {
-      // Determine which data to use based on active tab
-      const dataSource = activeTab === 0 ? offers : feedback;
-      const columnsSource = activeTab === 0 ? offersColumnsToShow : feedbackColumnsToShow;
+      const offerData = {
+        title: "Offers",
+        rows: stableOfferRows.map((row, index) => ({
+          ...row,
+          rowNumber: index + 1,
+          Effective_Date__c: (
+            offerColumnSettings["Effective_Date__c"]?.maskUnderContract &&
+            row.Offer_Status__c === "Under Contract"
+          ) ? "-" : row.Effective_Date__c,
+          Calculated_Purchase_Price__c: formatDollar(row.Calculated_Purchase_Price__c),
+          Total_Earnest_Money__c: formatDollar(row.Total_Earnest_Money__c),
+        })),
+        columns: offersColumnsToShow.filter(col => col.field !== "actions")
+      };
 
-      // Prepare rows with proper numbering
-      const orderedRows = dataSource.map((row, index) => {
-        // For offers, check if we need to mask dates
-        if (activeTab === 0) {
-          const closeDateSetting = columnSettings["Effective_Date__c"];
-          const shouldMask = closeDateSetting?.maskUnderContract;
-
-          return {
-            ...row,
-            Effective_Date__c: (shouldMask && row.Offer_Status__c === "Under Contract")
-              ? "-"
-              : row.Effective_Date__c,
-            rowNumber: index + 1
-          };
-        }
-
-        // For feedback, just add row numbers
-        return {
+      const feedbackData = {
+        title: "Feedback",
+        rows: stableFeedbackRows.map((row, index) => ({
           ...row,
           rowNumber: index + 1
-        };
-      });
-
-      // Filter out action columns
-      const visibleColumns = columnsSource.filter(col => col.field !== 'actions');
-
-      // Prepare geo data if available (only relevant for offers)
-      let orderedGeoData = {};
-      if (reportGeoData && activeTab === 0) {
-        orderedRows.forEach((row, index) => {
-          const featureId = row.id || row.dealId;
-          const originalFeature = reportGeoData[featureId];
-          if (originalFeature) {
-            orderedGeoData[featureId] = {
-              ...originalFeature,
-              properties: {
-                ...originalFeature.properties,
-                rowNumber: index + 1
-              }
-            };
-          }
-        });
-      }
+        })),
+        columns: feedbackColumnsToShow.filter(col => col.field !== "actions")
+      };
 
       // Generate PDFs
       const { tabularPDF, mapPDF } = await generatePDFReport(
-        orderedRows,
-        visibleColumns,
-        `${reportTitle} - ${activeTab === 0 ? 'Offers' : 'Feedback'}`,
+        [offerData, feedbackData], // 🆕 array of table sections
+        reportTitle,
         { orientation: 'landscape' },
-        Object.keys(orderedGeoData).length > 0 ? orderedGeoData : null
+        activeTab === 0 ? reportGeoData : {} // optional
       );
 
       // Create PDF blob
       const pdfBlob = new Blob([tabularPDF], { type: 'application/pdf' });
       const pdfUrl = URL.createObjectURL(pdfBlob);
-
+      const orderedRows = activeTab === 0 ? offers : feedback;
+      const orderedGeoData = reportGeoData;
       const updatePreview = (comment = "") => {
         if (onPreviewPDF) {
           onPreviewPDF(pdfUrl, {
@@ -617,7 +593,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
       setIsGeneratingPDF(false);
     }
   };
-*/
+
   const RowOrderModal = React.memo(({ open, onClose, rows, rowOrder, setRowOrder, rowType }) => {
     const handleModalDragEnd = (event) => {
       const { active, over } = event;
@@ -1274,7 +1250,7 @@ const ReportBuilder = ({ reportData, cartItems, setCartItems, onBack, onRemoveIt
         <Button
           variant="contained"
           color="primary"
-          //onClick={handleInternalPreview}
+          onClick={handleInternalPreview}
           disabled={isGeneratingPDF}
           startIcon={
             <Box sx={{

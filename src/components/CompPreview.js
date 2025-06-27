@@ -39,17 +39,10 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
     message: '',
     severity: 'success'
   });
-  // Preserve existing comment state structure
-  const [comment, setComment] = useState(reportData.comment || "");
-  const [commentLoading, setCommentLoading] = useState(!reportData.comment);
-  const [isCommentOpen, setIsCommentOpen] = useState(false);
-  const [commentEdited, setCommentEdited] = useState(reportData.comment_edited || false);
+
   const [showPublishConfirmation, setShowPublishConfirmation] = useState(false);
   const [showPublishOptions, setShowPublishOptions] = useState(false);
-  // Preserve original report status for logic checks
-  //const originalReportStatus = reportData?.status || reportData?.reportStatus || null;
   const [reportStatus, setReportStatus] = useState(reportData?.status || null);
-  // Preserve report ID for overwriting logic
   const [reportId, setReportId] = useState(reportData?.id || reportData?.report_id || null);
   console.log("Report Id: ", reportId);
   console.log("Status: ", reportStatus);
@@ -57,7 +50,7 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
   const [mapPDF, setMapPDF] = useState(null);
   // Destructure all existing props exactly as before
   const {
-    reportTitle = "Comps Report",
+    reportTitle = "Listings Report",
     user_email = "",
     rowOrder = [],
     columnSettings = [],
@@ -66,28 +59,11 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
     report_data = [],
     report_id = "",
   } = reportData;
-  console.log('CompPreview geoData:', {
+  console.log('ListingPreview geoData:', {
     hasGeoData: !!geoData,
     keys: geoData ? Object.keys(geoData) : null,
     sampleFeature: geoData ? geoData[Object.keys(geoData)[0]] : null
   });
-/*
-  // Simulate comment loading (preserving existing behavior)
-  useEffect(() => {
-    if (!reportData.comment) {
-      const timer = setTimeout(() => {
-        setComment(
-          "This report contains 2 multi-family properties in Melissa, TX. The more recent property (Melissa Town Center) sold in Nov 2024 for $12.83 PSF with 32.20 acres and a total price of $18,000,000. The older comparable property from Sep 2021 sold for $6.27 PSF with 19.69 acres and a total price of $5,379,647. The newer property shows a significant price increase, reflecting current market conditions in this area."
-        );
-        setCommentLoading(false);
-      }, 10000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [reportData.comment]);
-*/
-  // In CompPreview.js - REPLACE the current useEffect with:
-
 
   useEffect(() => {
     if (reportData?.mapPDF) {
@@ -118,22 +94,6 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
 
     // Clean up
     setTimeout(() => URL.revokeObjectURL(mapUrl), 1000);
-  };
-
-  useEffect(() => {
-    if (reportData.comment) {
-      setComment(reportData.comment);
-      setCommentLoading(false);
-    }
-  }, [reportData.comment]);
-
-  const handleCommentToggle = () => {
-    setIsCommentOpen(!isCommentOpen);
-  };
-
-  const handleCommentSave = () => {
-    setCommentEdited(true);
-    setIsCommentOpen(false);
   };
 
   // Preserve EXACTLY the existing payload structure
@@ -189,16 +149,13 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
       })),
       report_center_lat: centerLat,
       report_center_lng: centerLng,
-      // New bounds properties
       bounds_min_lat: minLat,
       bounds_max_lat: maxLat,
       bounds_min_lng: minLng,
       bounds_max_lng: maxLng,
       status,
-      comment_edited: commentEdited,
       generated_at: new Date().toISOString(),
       pdf_base64: "", // Will be added in handlePublishComp
-      comment: comment, // Preserving exact property name
       report_data: report_data,
       is_update: status === 'published' && reportStatus === 'published',
       geo_data: "",
@@ -272,7 +229,6 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
       if (geoData) {
         payload.geo_data = geoData;
       }
-      // 🔁 ADDED BACK: ACTION TYPE LOGIC
       const actionType = getPublishActionType(userWantsNewVersion);
       payload.action_type = actionType;
 
@@ -400,7 +356,7 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
       if (geoData) {
         payload.geo_data = geoData;
       }
-      
+
       console.log("Draft payload:", JSON.stringify(payload, null, 2));
 
       const response = await fetch(
@@ -564,133 +520,7 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
               </IconButton>
             </Tooltip>
           )}
-
-          <Tooltip title={commentLoading ? "Generating market insights..." : "View/edit summary"}>
-            <IconButton
-              onClick={commentLoading ? undefined : handleCommentToggle}
-              sx={{
-                backgroundColor: commentLoading ? 'background.default' : 'transparent',
-                '&:hover': {
-                  backgroundColor: commentLoading ? 'background.default' : 'action.hover'
-                },
-                p: commentLoading ? 1 : 0 // ✅ Add back padding during loading
-              }}
-            >
-              {commentLoading ? (
-                <CircularProgress size={24} />
-              ) : (
-                <Box sx={{
-                  backgroundColor: '#4CAF50',
-                  borderRadius: 2,
-                  width: 40,
-                  height: 40,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: 1,
-                  transition: 'all 0.2s ease',
-                  '&:hover': { transform: 'scale(1.05)' }
-                }}>
-                  <MarkChatReadOutlinedIcon sx={{ color: 'white', fontSize: '1.25rem' }} />
-                </Box>
-              )}
-            </IconButton>
-          </Tooltip>
         </Box>
-        {/* Enhanced Comment Editor Card */}
-        <Collapse in={isCommentOpen} sx={{
-          position: 'absolute',
-          top: 60,
-          right: 16,
-          zIndex: 1000,
-          width: isMobile ? '90%' : '400px',
-        }}>
-          <Card sx={{
-            boxShadow: 3,
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            overflow: 'hidden'
-          }}>
-            {/* Blue Header */}
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              p: 2,
-              backgroundColor: 'primary.main',
-              color: 'white',
-              flexShrink: 0
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MessageOutlinedIcon fontSize="small" sx={{ color: 'white' }} />
-                <Typography variant="subtitle1">Comp Summary</Typography>
-              </Box>
-              <IconButton
-                onClick={() => setIsCommentOpen(false)}
-                size="small"
-                sx={{ color: 'white' }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Box>
-
-            {/* Content Area */}
-            <Box sx={{
-              p: 2,
-              flex: 1,
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column'
-            }}>
-              <TextField
-                multiline
-                fullWidth
-                minRows={4}
-                maxRows={8}
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                variant="outlined"
-                sx={{
-                  mb: 2,
-                  flex: 1,
-                  '& .MuiOutlinedInput-root': {
-                    height: '100%',
-                    alignItems: 'flex-start'
-                  }
-                }}
-              />
-
-              <Box sx={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: 1,
-                borderTop: '1px solid',
-                borderColor: 'divider',
-                pt: 2
-              }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setIsCommentOpen(false)}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="small"
-                  onClick={handleCommentSave}
-                  startIcon={<CheckOutlinedIcon fontSize="small" />}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Save Changes
-                </Button>
-              </Box>
-            </Box>
-          </Card>
-        </Collapse>
       </Box>
 
       {/* Footer with all buttons - Add this */}
@@ -744,7 +574,7 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
               </Box>
             }
             onClick={handlePublishClick}
-            disabled={publishing || commentLoading}
+            disabled={publishing}
             sx={{
               px: 2,
               textTransform: 'none',
@@ -756,7 +586,7 @@ const CompPreview = ({ pdfUrl, onBack, reportData, geoData, onContextUpdate }) =
                 Publishing...
                 <CircularProgress size={24} sx={{ ml: 1 }} />
               </>
-            ) : 'PUBLISH COMP'}
+            ) : 'PUBLISH REPORT'}
           </Button>
         </Box>
       </Box>
